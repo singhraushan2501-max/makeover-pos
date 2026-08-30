@@ -51,6 +51,11 @@ body { background: var(--bg-main); color: var(--text-main); display: flex; heigh
 .header-title p { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .user-profile { display: flex; align-items: center; gap: 12px; }
 .badge-pro { background: #ffe4e6; color: var(--primary); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.sync-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:20px; background:#f1f5f9; color:#475569; font-size:11px; font-weight:700; white-space:nowrap; }
+.sync-dot { width:8px; height:8px; border-radius:50%; background:#94a3b8; box-shadow:0 0 0 2px rgba(148,163,184,.15); }
+.sync-pill.online .sync-dot { background:#10b981; box-shadow:0 0 0 2px rgba(16,185,129,.15); }
+.sync-pill.syncing .sync-dot { background:#f59e0b; box-shadow:0 0 0 2px rgba(245,158,11,.15); }
+.sync-pill.error .sync-dot { background:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.15); }
 .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
 
 /* View Views Container */
@@ -196,7 +201,7 @@ td:last-child { border-right: 1px solid var(--border-color); }
 
     <div class="sidebar-footer">
       <p><i class="fa-solid fa-shield-halved"></i> Admin Control Panel</p>
-      <small style="opacity: 0.7;">v2.6 Pro Rewards Suite</small>
+      <small style="opacity: 0.7;">v3.0 Multi-Device Cloud Sync</small>
     </div>
   </div>
 
@@ -207,6 +212,7 @@ td:last-child { border-right: 1px solid var(--border-color); }
         <p id="pageSubtitle">Create invoices, manage client appointments & process quick payments</p>
       </div>
       <div class="user-profile">
+        <span id="headerSyncPill" class="sync-pill" title="Cloud sync status"><span class="sync-dot"></span><span id="headerSyncText">Local only</span></span>
         <span class="badge-pro"><i class="fa-solid fa-crown"></i> PRO EDITION</span>
         <div class="avatar">NS</div>
       </div>
@@ -667,11 +673,17 @@ td:last-child { border-right: 1px solid var(--border-color); }
               <div class="form-group"><label>Supabase Publishable / Anon Key</label><input type="password" id="supabaseKey" placeholder="Paste your browser-safe key"></div>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-              <button class="btn btn-primary" onclick="connectSupabase()"><i class="fa-solid fa-link"></i> Connect to Supabase</button>
-              <button class="btn btn-success" onclick="backupToSupabase()"><i class="fa-solid fa-cloud-arrow-up"></i> Backup to Supabase</button>
-              <button class="btn btn-warning" onclick="restoreFromSupabase()"><i class="fa-solid fa-cloud-arrow-down"></i> Restore from Supabase</button>
+              <button class="btn btn-primary" onclick="connectSupabase()"><i class="fa-solid fa-link"></i> Connect & Start Sync</button>
+              <button class="btn btn-success" onclick="backupToSupabase()"><i class="fa-solid fa-cloud-arrow-up"></i> Sync Now</button>
+              <button class="btn btn-warning" onclick="restoreFromSupabase()"><i class="fa-solid fa-cloud-arrow-down"></i> Restore / Merge Cloud</button>
               <button class="btn btn-danger" onclick="disconnectSupabase()"><i class="fa-solid fa-link-slash"></i> Disconnect</button>
               <span id="supabaseStatus" style="font-size:13px;font-weight:600;">Not connected</span>
+            </div>
+            <div style="margin-top:14px;padding:12px 14px;border:1px solid var(--border-color);border-radius:8px;background:#f8fafc;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:12px;">
+              <div><strong>Device:</strong> <span id="syncDeviceName">This device</span></div>
+              <div><strong>Auto backup:</strong> <span id="autoBackupState">Enabled</span></div>
+              <div><strong>Last cloud sync:</strong> <span id="lastCloudSync">Never</span></div>
+              <div><strong>Sync mode:</strong> Every 10 sec + every bill</div>
             </div>
             <small style="display:block;margin-top:10px;color:var(--text-muted);">Use only a Supabase publishable/anon key in this browser. Never paste a service-role/secret key here.</small>
           </div>
@@ -779,6 +791,7 @@ window.onload = function() {
   if (document.getElementById('supabaseUrl')) document.getElementById('supabaseUrl').value = savedUrl;
   if (document.getElementById('supabaseKey')) document.getElementById('supabaseKey').value = savedKey;
   if (savedUrl && savedKey) updateSupabaseStatus('Credentials saved locally');
+  initializeCloudSync();
 };
 
 function switchTab(tabId, element) {
@@ -1025,6 +1038,7 @@ function processBillData() {
     customers[phone].name = name;
     customers[phone].email = email;
     customers[phone].address = address;
+    customers[phone]._syncUpdatedAt = new Date().toISOString();
 
     const updatedSale = {
       ...oldSale,
@@ -1044,7 +1058,8 @@ function processBillData() {
       paid: totals.paid,
       due: totals.due,
       itemsDetail: itemsDetail,
-      itemsSummary: cart.map(i => i.name).join(', ')
+      itemsSummary: cart.map(i => i.name).join(', '),
+      syncUpdatedAt: new Date().toISOString()
     };
 
     // Apply redeemed points/wallet against the newly edited bill.
@@ -1092,6 +1107,7 @@ function processBillData() {
   customers[phone].name = name;
     customers[phone].email = email;
     customers[phone].address = address;
+    customers[phone]._syncUpdatedAt = new Date().toISOString();
 
   localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
 
@@ -1113,7 +1129,8 @@ function processBillData() {
     paid: totals.paid,
     due: totals.due,
     itemsDetail: itemsDetail,
-    itemsSummary: cart.map(i => i.name).join(', ')
+    itemsSummary: cart.map(i => i.name).join(', '),
+    syncUpdatedAt: new Date().toISOString()
   };
   sales.push(saleRecord);
   localStorage.setItem('nitusharma_sales', JSON.stringify(sales));
@@ -1148,6 +1165,7 @@ function reverseSaleFromCustomer(sale) {
 function saveAndPrintBill() {
   const sale = processBillData();
   if (!sale) return;
+  autoBackupAfterBill(sale);
   printSaleRecord(sale);
   resetBillForm();
 }
@@ -1155,6 +1173,7 @@ function saveAndPrintBill() {
 function saveAndSendWhatsApp() {
   const sale = processBillData();
   if (!sale) return;
+  autoBackupAfterBill(sale);
   sendWhatsAppSaleRecord(sale);
   resetBillForm();
 }
@@ -1224,6 +1243,7 @@ function deleteBill(saleId) {
 function saveAndPrintBill() {
   const sale = processBillData();
   if (!sale) return;
+  autoBackupAfterBill(sale);
   printSaleRecord(sale);
   resetBillForm();
 }
@@ -1231,6 +1251,7 @@ function saveAndPrintBill() {
 function saveAndSendWhatsApp() {
   const sale = processBillData();
   if (!sale) return;
+  autoBackupAfterBill(sale);
   sendWhatsAppSaleRecord(sale);
   resetBillForm();
 }
@@ -1952,55 +1973,252 @@ function downloadCSV(csvContent, filename) {
 }
 
 // SYSTEM BACKUP & RESTORE LOGIC
-// ---------------- SUPABASE DIRECT CLOUD BACKUP ----------------
+// ---------------- MULTI-DEVICE SUPABASE CLOUD SYNC ----------------
+// Uses one shared row (backup_key = "main") and merges records before every push.
+// Required Supabase columns: backup_key text PRIMARY KEY, data jsonb, updated_at timestamptz.
 const SUPABASE_TABLE = 'nitusharma_pos_backups';
+const CLOUD_SYNC_INTERVAL_MS = 10000;
+const DEVICE_ID = localStorage.getItem('nitusharma_device_id') || (crypto.randomUUID ? crypto.randomUUID() : 'device-'+Date.now()+'-'+Math.random().toString(16).slice(2));
+localStorage.setItem('nitusharma_device_id', DEVICE_ID);
+let cloudSyncTimer = null;
+let cloudBackupTimer = null;
+let cloudSyncBusy = false;
+let cloudDirty = false;
+let lastCloudAppliedAt = localStorage.getItem('nitusharma_last_cloud_applied') || '';
+
 function getSupabaseConfig() {
   const url = (document.getElementById('supabaseUrl')?.value || localStorage.getItem('nitusharma_supabase_url') || '').trim().replace(/\/$/, '');
   const key = (document.getElementById('supabaseKey')?.value || localStorage.getItem('nitusharma_supabase_key') || '').trim();
   return { url, key };
 }
-function updateSupabaseStatus(text, ok=false) {
-  const el=document.getElementById('supabaseStatus'); if(!el)return; el.innerText=text; el.style.color=ok?'#16a34a':'var(--text-muted)';
+
+function setHeaderSyncState(text, state='idle') {
+  const pill = document.getElementById('headerSyncPill');
+  const label = document.getElementById('headerSyncText');
+  if (label) label.textContent = text;
+  if (pill) { pill.classList.remove('online','syncing','error'); if (state !== 'idle') pill.classList.add(state); }
 }
-function supabaseHeaders(key, extra={}) { return Object.assign({'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'},extra); }
+
+function updateSupabaseStatus(text, ok=false) {
+  const el = document.getElementById('supabaseStatus');
+  if (el) { el.innerText = text; el.style.color = ok ? '#16a34a' : 'var(--text-muted)'; }
+}
+
+function updateLastSyncUI(iso) {
+  if (!iso) return;
+  localStorage.setItem('nitusharma_last_cloud_sync', iso);
+  const el = document.getElementById('lastCloudSync');
+  if (el) el.textContent = new Date(iso).toLocaleString();
+}
+
+function supabaseHeaders(key, extra={}) {
+  return Object.assign({'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'}, extra);
+}
+
+function collectSystemBackup() {
+  return {
+    app: 'MAKEOVER BY NITU SHARMA', version: '3.0-multidevice',
+    deviceId: DEVICE_ID, exportedAt: new Date().toISOString(), services, customers, sales
+  };
+}
+
+function saleTimestamp(s) {
+  const t = Date.parse(s?.syncUpdatedAt || s?.updatedAt || s?.fullDate || s?.date || '') || 0;
+  return t;
+}
+
+function customerTimestamp(c) { return Date.parse(c?._syncUpdatedAt || '') || 0; }
+
+function mergeCloudAndLocal(remote={}) {
+  const local = collectSystemBackup();
+  const mergedServices = new Map();
+  [...(remote.services || []), ...(local.services || [])].forEach(item => {
+    if (!item || !item.name) return;
+    mergedServices.set(item.name.trim().toLowerCase(), {name:item.name, price:Number(item.price)||0});
+  });
+
+  const mergedSales = new Map();
+  [...(remote.sales || []), ...(local.sales || [])].forEach(sale => {
+    if (!sale || !sale.id) return;
+    const prev = mergedSales.get(sale.id);
+    if (!prev || saleTimestamp(sale) >= saleTimestamp(prev)) mergedSales.set(sale.id, sale);
+  });
+
+  const mergedCustomers = {...(remote.customers || {})};
+  Object.entries(local.customers || {}).forEach(([phone,c]) => {
+    const prev = mergedCustomers[phone];
+    if (!prev || customerTimestamp(c) >= customerTimestamp(prev)) mergedCustomers[phone] = c;
+  });
+
+  return {
+    app: local.app, version: local.version, deviceId: DEVICE_ID,
+    exportedAt: new Date().toISOString(),
+    services: Array.from(mergedServices.values()), customers: mergedCustomers,
+    sales: Array.from(mergedSales.values()).sort((a,b) => saleTimestamp(a)-saleTimestamp(b))
+  };
+}
+
+function applyCloudData(data, updatedAt='') {
+  if (!data || typeof data !== 'object') return false;
+  const merged = mergeCloudAndLocal(data);
+  services = Array.isArray(merged.services) ? merged.services : services;
+  customers = merged.customers && typeof merged.customers === 'object' ? merged.customers : customers;
+  sales = Array.isArray(merged.sales) ? merged.sales : sales;
+
+  localStorage.setItem('nitusharma_items', JSON.stringify(services));
+  localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
+  localStorage.setItem('nitusharma_sales', JSON.stringify(sales));
+  if (updatedAt) { lastCloudAppliedAt = updatedAt; localStorage.setItem('nitusharma_last_cloud_applied', updatedAt); }
+
+  populateServiceDropdown();
+  try { renderServicesTable(); } catch(e) {}
+  try { renderCustomers(); } catch(e) {}
+  try { renderSales(); } catch(e) {}
+  try { renderCRM(); } catch(e) {}
+  try { renderLoyaltyTab(); } catch(e) {}
+  return true;
+}
+
+async function fetchCloudMain() {
+  const {url,key} = getSupabaseConfig();
+  if (!url || !key) return null;
+  const res = await fetch(`${url}/rest/v1/${SUPABASE_TABLE}?backup_key=eq.main&select=data,updated_at&limit=1`, {headers:supabaseHeaders(key), cache:'no-store'});
+  if (!res.ok) throw new Error(await res.text());
+  const rows = await res.json();
+  return rows[0] || null;
+}
+
+async function pushCloudSnapshot(reason='auto') {
+  const {url,key} = getSupabaseConfig();
+  if (!url || !key || cloudSyncBusy) return false;
+  cloudSyncBusy = true;
+  setHeaderSyncState('Syncing…','syncing');
+  updateSupabaseStatus('Syncing to cloud…');
+  try {
+    const remoteRow = await fetchCloudMain();
+    const merged = mergeCloudAndLocal(remoteRow?.data || {});
+    applyCloudData(merged, remoteRow?.updated_at || '');
+    const now = new Date().toISOString();
+    const payload = {backup_key:'main', data:{...merged, exportedAt:now, lastReason:reason}, updated_at:now};
+    const res = await fetch(`${url}/rest/v1/${SUPABASE_TABLE}?on_conflict=backup_key`, {
+      method:'POST', headers:supabaseHeaders(key, {'Prefer':'resolution=merge-duplicates,return=minimal'}), body:JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(await res.text());
+    lastCloudAppliedAt = now;
+    localStorage.setItem('nitusharma_last_cloud_applied', now);
+    cloudDirty = false;
+    updateLastSyncUI(now);
+    updateSupabaseStatus('Synced: '+new Date(now).toLocaleString(), true);
+    setHeaderSyncState('Cloud synced','online');
+    return true;
+  } catch(e) {
+    console.error('Cloud sync failed:', e);
+    updateSupabaseStatus('Sync failed - local data is safe');
+    setHeaderSyncState('Sync error','error');
+    return false;
+  } finally { cloudSyncBusy = false; }
+}
+
+async function pullCloudChanges(force=false) {
+  const {url,key} = getSupabaseConfig();
+  if (!url || !key || cloudSyncBusy) return false;
+  cloudSyncBusy = true;
+  try {
+    const row = await fetchCloudMain();
+    if (!row?.data) return false;
+    const remoteAt = row.updated_at || row.data.exportedAt || '';
+    if (!force && remoteAt && lastCloudAppliedAt && Date.parse(remoteAt) <= Date.parse(lastCloudAppliedAt)) return false;
+    applyCloudData(row.data, remoteAt);
+    updateLastSyncUI(remoteAt || new Date().toISOString());
+    updateSupabaseStatus('Updated from cloud: '+new Date(remoteAt || Date.now()).toLocaleString(), true);
+    setHeaderSyncState('Cloud synced','online');
+    return true;
+  } catch(e) {
+    console.error('Cloud pull failed:', e);
+    setHeaderSyncState('Offline / retrying','error');
+    return false;
+  } finally { cloudSyncBusy = false; }
+}
+
+function scheduleAutoCloudBackup(reason='data-change', immediate=false) {
+  cloudDirty = true;
+  const {url,key} = getSupabaseConfig();
+  if (!url || !key) return;
+  clearTimeout(cloudBackupTimer);
+  cloudBackupTimer = setTimeout(() => pushCloudSnapshot(reason), immediate ? 0 : 1200);
+}
+
+function autoBackupAfterBill(sale) {
+  // Save a local recovery snapshot synchronously, then start cloud sync immediately.
+  try { localStorage.setItem('nitusharma_last_auto_backup', JSON.stringify({createdAt:new Date().toISOString(), saleId:sale.id, data:collectSystemBackup()})); } catch(e) {}
+  scheduleAutoCloudBackup('bill:'+sale.id, true);
+}
+
 async function connectSupabase() {
   const {url,key}=getSupabaseConfig();
   if(!url || !key) return alert('Please enter the Supabase Project URL and Publishable/Anon Key.');
   try {
     const res=await fetch(`${url}/rest/v1/${SUPABASE_TABLE}?select=backup_key&limit=1`,{headers:supabaseHeaders(key)});
     if(!res.ok) throw new Error(await res.text());
-    localStorage.setItem('nitusharma_supabase_url',url); localStorage.setItem('nitusharma_supabase_key',key);
-    updateSupabaseStatus('Connected to Supabase',true); alert('Supabase connected successfully.');
-  } catch(e) { updateSupabaseStatus('Connection failed'); alert('Supabase connection failed.\n\nMake sure the SQL setup has been run and the URL/key are correct.\n\n'+e.message); }
+    localStorage.setItem('nitusharma_supabase_url',url);
+    localStorage.setItem('nitusharma_supabase_key',key);
+    updateSupabaseStatus('Connected - multi-device sync active',true);
+    setHeaderSyncState('Cloud connected','online');
+    await pullCloudChanges(true);
+    await pushCloudSnapshot('connect');
+    startCloudSyncTimer();
+    alert('Cloud connected. Multi-device sync and automatic bill backup are now active.');
+  } catch(e) {
+    updateSupabaseStatus('Connection failed'); setHeaderSyncState('Sync error','error');
+    alert('Supabase connection failed.\n\nMake sure the table exists and the URL/key are correct.\n\n'+e.message);
+  }
 }
-function disconnectSupabase(){ localStorage.removeItem('nitusharma_supabase_url'); localStorage.removeItem('nitusharma_supabase_key'); document.getElementById('supabaseUrl').value=''; document.getElementById('supabaseKey').value=''; updateSupabaseStatus('Not connected'); }
-function collectSystemBackup() {
-  return { app:'MAKEOVER BY NITU SHARMA', version:'2.6', exportedAt:new Date().toISOString(), services, customers, sales };
+
+function disconnectSupabase(){
+  localStorage.removeItem('nitusharma_supabase_url'); localStorage.removeItem('nitusharma_supabase_key');
+  if (document.getElementById('supabaseUrl')) document.getElementById('supabaseUrl').value='';
+  if (document.getElementById('supabaseKey')) document.getElementById('supabaseKey').value='';
+  if (cloudSyncTimer) clearInterval(cloudSyncTimer);
+  updateSupabaseStatus('Not connected'); setHeaderSyncState('Local only','idle');
 }
+
 async function backupToSupabase() {
   const {url,key}=getSupabaseConfig(); if(!url||!key) return alert('Connect to Supabase first.');
-  const backup=collectSystemBackup();
-  try {
-    const res=await fetch(`${url}/rest/v1/${SUPABASE_TABLE}`,{method:'POST',headers:supabaseHeaders(key,{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({backup_key:'main',data:backup,updated_at:new Date().toISOString()})});
-    if(!res.ok) throw new Error(await res.text());
-    localStorage.setItem('nitusharma_supabase_url',url); localStorage.setItem('nitusharma_supabase_key',key); updateSupabaseStatus('Last backup: '+new Date().toLocaleString(),true); alert('Backup completed successfully to Supabase.');
-  } catch(e){ updateSupabaseStatus('Backup failed'); alert('Supabase backup failed.\n\n'+e.message); }
+  const ok = await pushCloudSnapshot('manual-sync');
+  if (ok) alert('Cloud sync completed successfully.'); else alert('Cloud sync could not complete. Local data remains saved on this device.');
 }
+
 async function restoreFromSupabase() {
   const {url,key}=getSupabaseConfig(); if(!url||!key) return alert('Connect to Supabase first.');
-  if(!confirm('Restore the latest Supabase backup?\n\nThis will replace the current local Services, Customers and Sales data.')) return;
-  try {
-    const res=await fetch(`${url}/rest/v1/${SUPABASE_TABLE}?backup_key=eq.main&select=data,updated_at`,{headers:supabaseHeaders(key)});
-    if(!res.ok) throw new Error(await res.text());
-    const rows=await res.json(); if(!rows.length || !rows[0].data) throw new Error('No cloud backup found.');
-    const d=rows[0].data;
-    if(Array.isArray(d.services)) services=d.services;
-    if(d.customers && typeof d.customers==='object') customers=d.customers;
-    if(Array.isArray(d.sales)) sales=d.sales;
-    localStorage.setItem('nitusharma_items',JSON.stringify(services)); localStorage.setItem('nitusharma_customers',JSON.stringify(customers)); localStorage.setItem('nitusharma_sales',JSON.stringify(sales));
-    populateServiceDropdown(); renderServicesTable(); renderCustomers(); renderSales(); updateSupabaseStatus('Restored: '+new Date().toLocaleString(),true); alert('Cloud backup restored successfully.');
-  } catch(e){ updateSupabaseStatus('Restore failed'); alert('Supabase restore failed.\n\n'+e.message); }
+  if(!confirm('Merge the latest Supabase cloud data into this device?\n\nExisting local bills are kept and cloud bills are merged by Bill ID.')) return;
+  const ok = await pullCloudChanges(true);
+  if (ok) alert('Cloud data merged successfully.'); else alert('No cloud data was restored, or the cloud could not be reached.');
 }
+
+function startCloudSyncTimer() {
+  if (cloudSyncTimer) clearInterval(cloudSyncTimer);
+  cloudSyncTimer = setInterval(async () => {
+    if (document.visibilityState !== 'visible') return;
+    if (cloudDirty) await pushCloudSnapshot('periodic-dirty');
+    else await pullCloudChanges(false);
+  }, CLOUD_SYNC_INTERVAL_MS);
+}
+
+function initializeCloudSync() {
+  const deviceEl = document.getElementById('syncDeviceName');
+  if (deviceEl) deviceEl.textContent = DEVICE_ID.slice(0,8);
+  const last = localStorage.getItem('nitusharma_last_cloud_sync');
+  if (last) updateLastSyncUI(last);
+  const {url,key}=getSupabaseConfig();
+  if (url && key) {
+    setHeaderSyncState('Connecting…','syncing');
+    startCloudSyncTimer();
+    setTimeout(() => pullCloudChanges(true), 250);
+  } else setHeaderSyncState('Local only','idle');
+}
+
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pullCloudChanges(false); });
+window.addEventListener('focus', () => pullCloudChanges(false));
 
 function exportFullSystemBackup() {
   const backupData = {
