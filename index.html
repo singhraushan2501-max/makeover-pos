@@ -605,6 +605,7 @@ td:last-child { border-right: 1px solid var(--border-color); }
                 <th>Points Balance</th>
                 <th>Wallet Balance</th>
                 <th>Last Visit</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="customerTableBody"></tbody>
@@ -722,6 +723,7 @@ let customers = JSON.parse(localStorage.getItem('nitusharma_customers')) || {};
 let sales = JSON.parse(localStorage.getItem('nitusharma_sales')) || [];
 let cart = [];
 let manualPaidEdited = false;
+let editingSaleId = null;
 
 // CRM Filter state
 let currentFilter = 'all';
@@ -960,9 +962,65 @@ function processBillData() {
 
   const totals = calculateTotal();
   const dateStr = new Date().toISOString().split('T')[0];
-  const invoiceId = 'MNS-' + Date.now().toString().slice(-6);
   const itemsDetail = cart.map(i => ({ name: i.name, price: i.price }));
 
+  // EDIT EXISTING BILL
+  if (editingSaleId) {
+    const saleIndex = sales.findIndex(s => s.id === editingSaleId);
+    if (saleIndex === -1) {
+      alert('The bill you are trying to edit could not be found.');
+      editingSaleId = null;
+      return null;
+    }
+
+    const oldSale = sales[saleIndex];
+    reverseSaleFromCustomer(oldSale);
+
+    if (!customers[phone]) {
+      customers[phone] = { phone, name, email: '', visits: 0, totalSpent: 0, pendingDues: 0, points: 0, wallet: 0, lastVisit: dateStr, referredBy: null, referralCompleted: false };
+    }
+
+    const earnedPoints = Math.floor(totals.total / 100);
+    customers[phone].points = (customers[phone].points || 0) + earnedPoints;
+    customers[phone].visits = (customers[phone].visits || 0) + 1;
+    customers[phone].totalSpent = (customers[phone].totalSpent || 0) + totals.total;
+    customers[phone].pendingDues = (customers[phone].pendingDues || 0) + totals.due;
+    customers[phone].lastVisit = oldSale.date || dateStr;
+    customers[phone].name = name;
+
+    const updatedSale = {
+      ...oldSale,
+      date: oldSale.date || dateStr,
+      fullDate: new Date().toLocaleString(),
+      customerPhone: phone,
+      customerName: name,
+      subtotal: totals.subtotal,
+      taxAmount: totals.taxAmount,
+      discount: totals.discount,
+      redeemPoints: totals.redeemPoints,
+      useWallet: totals.useWallet,
+      earnedPoints: earnedPoints,
+      total: totals.total,
+      paid: totals.paid,
+      due: totals.due,
+      itemsDetail: itemsDetail,
+      itemsSummary: cart.map(i => i.name).join(', ')
+    };
+
+    // Apply redeemed points/wallet against the newly edited bill.
+    customers[phone].points = Math.max(0, (customers[phone].points || 0) - totals.redeemPoints);
+    customers[phone].wallet = Math.max(0, (customers[phone].wallet || 0) - totals.useWallet);
+
+    sales[saleIndex] = updatedSale;
+    localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
+    localStorage.setItem('nitusharma_sales', JSON.stringify(sales));
+
+    editingSaleId = null;
+    hideEditingBanner();
+    return updatedSale;
+  }
+
+  // CREATE NEW BILL
   if (!customers[phone]) {
     customers[phone] = { phone, name, email: '', visits: 0, totalSpent: 0, pendingDues: 0, points: 0, wallet: 0, lastVisit: dateStr, referredBy: null, referralCompleted: false };
   }
@@ -971,16 +1029,13 @@ function processBillData() {
   if (customers[phone].visits === 0 && customers[phone].referredBy && !customers[phone].referralCompleted) {
     const referrerPhone = customers[phone].referredBy;
     if (customers[referrerPhone]) {
-      // Reward Referrer
       customers[referrerPhone].points = (customers[referrerPhone].points || 0) + 100;
-      // Reward Referred Customer
       customers[phone].points = (customers[phone].points || 0) + 100;
       customers[phone].referralCompleted = true;
       alert(`🎉 Referral Bonus Unlocked!\n100 points credited to both ${customers[phone].name} and Referrer (${customers[referrerPhone].name}).`);
     }
   }
 
-  // Deduct Redeemed Points & Wallet
   if (totals.redeemPoints > 0) {
     customers[phone].points = Math.max(0, (customers[phone].points || 0) - totals.redeemPoints);
   }
@@ -988,10 +1043,8 @@ function processBillData() {
     customers[phone].wallet = Math.max(0, (customers[phone].wallet || 0) - totals.useWallet);
   }
 
-  // Award Loyalty Points (1 Point per ₹100 spent)
   const earnedPoints = Math.floor(totals.total / 100);
   customers[phone].points = (customers[phone].points || 0) + earnedPoints;
-
   customers[phone].visits += 1;
   customers[phone].totalSpent += totals.total;
   customers[phone].pendingDues = (customers[phone].pendingDues || 0) + totals.due;
@@ -1001,7 +1054,7 @@ function processBillData() {
   localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
 
   const saleRecord = {
-    id: invoiceId,
+    id: 'MNS-' + Date.now().toString().slice(-6),
     date: dateStr,
     fullDate: new Date().toLocaleString(),
     customerPhone: phone,
@@ -1022,6 +1075,104 @@ function processBillData() {
   localStorage.setItem('nitusharma_sales', JSON.stringify(sales));
 
   return saleRecord;
+}
+
+function reverseSaleFromCustomer(sale) {
+  const phone = sale.customerPhone;
+  if (!customers[phone]) return;
+
+  const c = customers[phone];
+  c.visits = Math.max(0, (c.visits || 0) - 1);
+  c.totalSpent = Math.max(0, (c.totalSpent || 0) - (sale.total || 0));
+  c.pendingDues = Math.max(0, (c.pendingDues || 0) - (sale.due || 0));
+
+  // Return points/wallet used by this bill and remove points earned by it.
+  c.points = Math.max(0, (c.points || 0) - (sale.earnedPoints || 0));
+  c.points += (sale.redeemPoints || 0);
+  c.wallet = (c.wallet || 0) + (sale.useWallet || 0);
+
+  if (c.visits === 0) {
+    c.lastVisit = 'Never';
+  } else {
+    const remaining = sales
+      .filter(s => s.id !== sale.id && s.customerPhone === phone)
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    c.lastVisit = remaining.length ? remaining[0].date : 'Never';
+  }
+}
+
+function saveAndPrintBill() {
+  const sale = processBillData();
+  if (!sale) return;
+  printSaleRecord(sale);
+  resetBillForm();
+}
+
+function saveAndSendWhatsApp() {
+  const sale = processBillData();
+  if (!sale) return;
+  sendWhatsAppSaleRecord(sale);
+  resetBillForm();
+}
+
+function startEditBill(saleId) {
+  const sale = sales.find(s => s.id === saleId);
+  if (!sale) return alert('Bill not found.');
+
+  editingSaleId = saleId;
+  document.getElementById('custPhone').value = sale.customerPhone || '';
+  document.getElementById('custName').value = sale.customerName || '';
+  document.getElementById('taxRate').value = sale.subtotal > 0 ? ((sale.taxAmount || 0) / sale.subtotal * 100).toFixed(2) : '18';
+  document.getElementById('discount').value = sale.discount || 0;
+  document.getElementById('redeemPointsInput').value = sale.redeemPoints || 0;
+  document.getElementById('useWalletInput').value = sale.useWallet || 0;
+  document.getElementById('paidAmount').value = sale.paid !== undefined ? sale.paid : sale.total;
+  manualPaidEdited = true;
+
+  cart = (sale.itemsDetail || []).map(item => ({ name: item.name, price: parseFloat(item.price) || 0 }));
+  renderCart();
+  calculateTotal();
+
+  document.getElementById('editingBillId').innerText = '#' + sale.id;
+  document.getElementById('editingBillBanner').style.display = 'block';
+  switchTab('pos-tab', document.querySelector('[onclick*="pos-tab"]'));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelEditBill() {
+  editingSaleId = null;
+  hideEditingBanner();
+  resetBillForm();
+}
+
+function hideEditingBanner() {
+  const banner = document.getElementById('editingBillBanner');
+  if (banner) banner.style.display = 'none';
+}
+
+function deleteBill(saleId) {
+  const sale = sales.find(s => s.id === saleId);
+  if (!sale) return alert('Bill not found.');
+
+  const ok = confirm(`Delete bill #${sale.id} for ${sale.customerName}?\n\nThis will remove the bill from Sales History and reverse its customer totals, dues, loyalty points and wallet usage. This action cannot be undone.`);
+  if (!ok) return;
+
+  reverseSaleFromCustomer(sale);
+  sales = sales.filter(s => s.id !== saleId);
+
+  localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
+  localStorage.setItem('nitusharma_sales', JSON.stringify(sales));
+
+  if (editingSaleId === saleId) {
+    editingSaleId = null;
+    hideEditingBanner();
+    resetBillForm();
+  }
+
+  renderCustomers();
+  renderSales();
+  renderCRM();
+  alert(`Bill #${sale.id} has been deleted successfully.`);
 }
 
 function saveAndPrintBill() {
@@ -1098,6 +1249,9 @@ function sendWhatsAppSaleRecord(sale) {
   const paid = sale.paid !== undefined ? sale.paid.toFixed(2) : sale.total.toFixed(2);
   const due = sale.due !== undefined ? sale.due.toFixed(2) : '0.00';
 
+  const googleReviewLink = 'https://g.page/r/CY9qnXdoSK8XEAI/review';
+  const instagramLink = 'https://www.instagram.com/mahi_beautymakeover?igsh=dzBwcTF0ZDB4d2Ux';
+
   const message = `✨ *MAKEOVER BY NITU SHARMA* ✨\n` +
     `------------------------------------\n` +
     `Hello *${sale.customerName}*, thank you for choosing Makeover by Nitu Sharma!\n\n` +
@@ -1111,7 +1265,13 @@ function sendWhatsAppSaleRecord(sale) {
     `*TOTAL BILL:* ₹${sale.total.toFixed(2)}\n` +
     `*Amount Paid:* ₹${paid}\n` +
     `*Due Balance:* ₹${due}\n` +
-    `------------------------------------\n` +
+    `------------------------------------\n\n` +
+    `⭐ *Please Review Our 5 Star Service!*\n` +
+    `We would love to hear about your experience. Please take a moment to leave us a *5-star Google Review*:\n` +
+    `${googleReviewLink}\n\n` +
+    `📸 *Follow Us on Instagram*\n` +
+    `${instagramLink}\n\n` +
+    `Thank you for your love and support! 💕\n` +
     `We look forward to seeing you again! 💖`;
 
   window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
@@ -1381,6 +1541,26 @@ function addCustomerManually() {
   }
 }
 
+function deleteCustomer(phone) {
+  if (!customers[phone]) return alert('Customer not found.');
+
+  const customer = customers[phone];
+  const hasBills = sales.some(s => s.customerPhone === phone);
+  const warning = hasBills
+    ? `Delete ${customer.name} (${phone}) from the customer database?\n\nTheir existing bills will NOT be deleted. Sales history will remain intact.\n\nThis will remove their profile, points and wallet balance.`
+    : `Delete ${customer.name} (${phone}) from the customer database?`;
+
+  if (!confirm(warning)) return;
+
+  delete customers[phone];
+  localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
+  renderCustomers();
+  renderPromoCustomerTable();
+  renderLoyaltyTab();
+  renderCRM();
+  alert('Customer deleted successfully.');
+}
+
 function renderCustomers() {
   const query = document.getElementById('searchCust').value.toLowerCase();
   const tbody = document.getElementById('customerTableBody');
@@ -1398,12 +1578,17 @@ function renderCustomers() {
           <td>${c.phone}</td>
           <td><strong>${c.name}</strong></td>
           <td>${c.email || '-'}</td>
-          <td>${c.visits}</td>
-          <td>₹${c.totalSpent.toFixed(2)}</td>
+          <td>${c.visits || 0}</td>
+          <td>₹${(c.totalSpent || 0).toFixed(2)}</td>
           <td>${duesBadge}</td>
           <td><strong style="color:#f59e0b;">${c.points || 0}</strong></td>
           <td><strong style="color:#10b981;">₹${(c.wallet || 0).toFixed(2)}</strong></td>
-          <td>${c.lastVisit}</td>
+          <td>${c.lastVisit || '-'}</td>
+          <td style="white-space:nowrap;">
+            <button class="btn btn-danger btn-sm" onclick="deleteCustomer('${String(c.phone).replace(/'/g, "\\'")}')" title="Delete Customer">
+              <i class="fa-solid fa-trash"></i> Delete
+            </button>
+          </td>
         </tr>
       `;
     }
@@ -1428,9 +1613,11 @@ function renderSales() {
         <td>₹${s.total.toFixed(2)}</td>
         <td style="color:#10b981;">₹${paid.toFixed(2)}</td>
         <td style="color:${due > 0 ? '#ef4444' : '#10b981'}; font-weight:bold;">₹${due.toFixed(2)}</td>
-        <td>
-          <button class="btn btn-primary btn-sm" onclick='printSaleRecord(${JSON.stringify(s)})'><i class="fa-solid fa-print"></i></button>
-          <button class="btn btn-whatsapp btn-sm" onclick='sendWhatsAppSaleRecord(${JSON.stringify(s)})'><i class="fa-brands fa-whatsapp"></i></button>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-primary btn-sm" onclick='printSaleRecord(${JSON.stringify(s)})' title="Print Bill"><i class="fa-solid fa-print"></i></button>
+          <button class="btn btn-warning btn-sm" onclick='startEditBill(${JSON.stringify(s.id)})' title="Edit Bill"><i class="fa-solid fa-pen-to-square"></i></button>
+          <button class="btn btn-whatsapp btn-sm" onclick='sendWhatsAppSaleRecord(${JSON.stringify(s)})' title="Send WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>
+          <button class="btn btn-danger btn-sm" onclick='deleteBill(${JSON.stringify(s.id)})' title="Delete Bill"><i class="fa-solid fa-trash"></i></button>
         </td>
       </tr>
     `;
@@ -1775,4 +1962,3 @@ function importFullSystemBackup() {
 </script>
 </body>
 </html>
-
