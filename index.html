@@ -23,6 +23,46 @@
 * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
 body { background: var(--bg-main); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
+/* Faded Logo Background on Each Tab */
+.tab-content {
+  position: relative;
+  min-height: 100%;
+}
+.tab-content::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 450px;
+  height: 450px;
+  background-image: url('https://www.image2url.com/r2/default/images/1786556675457-16f89082-80f2-4410-b458-0a3647623936.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 0;
+}
+.tab-content > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Auth Login Modal Overlay */
+#loginModalOverlay {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(15, 23, 42, 0.95);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 99999;
+}
+.login-card {
+  background: #fff; width: 380px; padding: 30px; border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center;
+}
+.login-card img { width: 70px; height: 70px; border-radius: 50%; margin-bottom: 15px; border: 2px solid var(--primary); }
+
 /* Dashboard Wrapper */
 .admin-wrapper { display: flex; width: 100vw; height: 100vh; }
 
@@ -51,14 +91,9 @@ body { background: var(--bg-main); color: var(--text-main); display: flex; heigh
 .header-title p { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .user-profile { display: flex; align-items: center; gap: 12px; }
 .badge-pro { background: #ffe4e6; color: var(--primary); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-.sync-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:20px; background:#f1f5f9; color:#475569; font-size:11px; font-weight:700; white-space:nowrap; }
-.sync-dot { width:8px; height:8px; border-radius:50%; background:#94a3b8; box-shadow:0 0 0 2px rgba(148,163,184,.15); }
-.sync-pill.online .sync-dot { background:#10b981; box-shadow:0 0 0 2px rgba(16,185,129,.15); }
-.sync-pill.syncing .sync-dot { background:#f59e0b; box-shadow:0 0 0 2px rgba(245,158,11,.15); }
-.sync-pill.error .sync-dot { background:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.15); }
 .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
 
-/* View Views Container */
+/* View Container */
 .content-body { padding: 25px 30px; flex: 1; }
 
 .tab-content { display: none; }
@@ -127,6 +162,14 @@ td:last-child { border-right: 1px solid var(--border-color); }
 .filter-btn { padding: 6px 14px; border: 1px solid var(--border-color); background: #ffffff; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-muted); transition: 0.15s; }
 .filter-btn.active { background: var(--primary); color: #ffffff; border-color: var(--primary); }
 
+/* Switch Toggle Box */
+.switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: var(--primary); }
+input:checked + .slider:before { transform: translateX(22px); }
+
 /* Thermal Receipt Print */
 @media print {
   body * { visibility: hidden; }
@@ -137,6 +180,26 @@ td:last-child { border-right: 1px solid var(--border-color); }
 </style>
 </head>
 <body>
+
+<!-- Login Modal -->
+<div id="loginModalOverlay" style="display: none;">
+  <div class="login-card">
+    <img src="https://www.image2url.com/r2/default/images/1786556675457-16f89082-80f2-4410-b458-0a3647623936.png" alt="Logo">
+    <h3 style="margin-bottom: 5px;">System Security Login</h3>
+    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">Makeover by Nitu Sharma POS</p>
+    <div class="form-group" style="text-align: left;">
+      <label>User ID / Username</label>
+      <input type="text" id="loginUserId" placeholder="Enter Login ID">
+    </div>
+    <div class="form-group" style="text-align: left;">
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="Enter Password">
+    </div>
+    <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" onclick="attemptLogin()">
+      <i class="fa-solid fa-right-to-bracket"></i> Login
+    </button>
+  </div>
+</div>
 
 <div class="admin-wrapper no-print">
   <div class="sidebar">
@@ -174,9 +237,21 @@ td:last-child { border-right: 1px solid var(--border-color); }
         </a>
       </li>
       <li class="nav-item">
+        <a class="nav-link" onclick="switchTab('expenses-tab', this)">
+          <i class="fa-solid fa-wallet"></i>
+          <span>Expense Management & P&L</span>
+        </a>
+      </li>
+      <li class="nav-item">
         <a class="nav-link" onclick="switchTab('services-tab', this)">
           <i class="fa-solid fa-spa"></i>
           <span>Service Menu</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" onclick="switchTab('inventory-tab', this)">
+          <i class="fa-solid fa-boxes-stacked"></i>
+          <span>Product Inventory Entry</span>
         </a>
       </li>
       <li class="nav-item">
@@ -191,7 +266,19 @@ td:last-child { border-right: 1px solid var(--border-color); }
           <span>Sales History</span>
         </a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item" id="nav-login-manage">
+        <a class="nav-link" onclick="switchTab('login-manage-tab', this)">
+          <i class="fa-solid fa-user-lock"></i>
+          <span>Login & Security Settings</span>
+        </a>
+      </li>
+      <li class="nav-item" id="nav-staff-comm">
+        <a class="nav-link" onclick="switchTab('staff-comm-tab', this)">
+          <i class="fa-solid fa-users-gear"></i>
+          <span>Staff & Commission</span>
+        </a>
+      </li>
+      <li class="nav-item" id="nav-backup">
         <a class="nav-link" onclick="switchTab('backup-tab', this)">
           <i class="fa-solid fa-database"></i>
           <span>Data Backup & Restore</span>
@@ -200,8 +287,8 @@ td:last-child { border-right: 1px solid var(--border-color); }
     </ul>
 
     <div class="sidebar-footer">
-      <p><i class="fa-solid fa-shield-halved"></i> Admin Control Panel</p>
-      <small style="opacity: 0.7;">v3.0 Multi-Device Cloud Sync</small>
+      <p><i class="fa-solid fa-shield-halved"></i> Control Panel</p>
+      <small style="opacity: 0.7;">v2.6 Pro Rewards Suite</small>
     </div>
   </div>
 
@@ -212,14 +299,32 @@ td:last-child { border-right: 1px solid var(--border-color); }
         <p id="pageSubtitle">Create invoices, manage client appointments & process quick payments</p>
       </div>
       <div class="user-profile">
-        <span id="headerSyncPill" class="sync-pill" title="Cloud sync status"><span class="sync-dot"></span><span id="headerSyncText">Local only</span></span>
-        <span class="badge-pro"><i class="fa-solid fa-crown"></i> PRO EDITION</span>
-        <div class="avatar">NS</div>
+        <span class="badge-pro" id="currentRoleBadge"><i class="fa-solid fa-user-shield"></i> Role: ADMIN</span>
+        <div class="avatar" id="currentUserAvatar">NS</div>
+        <button class="btn btn-secondary btn-sm" id="logoutBtn" style="display:none;" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i></button>
       </div>
     </div>
 
     <div class="content-body">
       <div id="billing-tab" class="tab-content active">
+        <!-- Staff Performance Quick Banner in Billing Tab -->
+        <div class="grid-cards" style="margin-bottom: 15px;">
+          <div class="metric-card" style="border-left: 4px solid #10b981;">
+            <div class="metric-card-header">
+              <span class="metric-title"><i class="fa-solid fa-trophy" style="color:#f59e0b;"></i> Highest Revenue Staff</span>
+            </div>
+            <div class="metric-val" id="highestStaffVal" style="font-size: 18px;">None</div>
+            <div class="metric-sub" id="highestStaffSub">₹0.00 generated</div>
+          </div>
+          <div class="metric-card" style="border-left: 4px solid #ef4444;">
+            <div class="metric-card-header">
+              <span class="metric-title"><i class="fa-solid fa-chart-line-down" style="color:#ef4444;"></i> Lowest Revenue Staff</span>
+            </div>
+            <div class="metric-val" id="lowestStaffVal" style="font-size: 18px;">None</div>
+            <div class="metric-sub" id="lowestStaffSub">₹0.00 generated</div>
+          </div>
+        </div>
+
         <div class="grid-2">
           <div class="card-box">
             <h3><i class="fa-solid fa-file-invoice"></i> New Service Invoice</h3>
@@ -236,6 +341,12 @@ td:last-child { border-right: 1px solid var(--border-color); }
                 <label>Client Email</label>
                 <input type="email" id="custEmail" placeholder="client@example.com">
               </div>
+              <div class="form-group">
+                <label>Assigned Staff Name</label>
+                <select id="billStaffSelect">
+                  <option value="">-- Choose Staff --</option>
+                </select>
+              </div>
               <div class="form-group" style="grid-column: 1 / -1;">
                 <label>Client Address</label>
                 <textarea id="custAddress" rows="2" placeholder="Enter complete client address"></textarea>
@@ -249,12 +360,20 @@ td:last-child { border-right: 1px solid var(--border-color); }
               </div>
             </div>
 
-            <h3 style="margin-top: 15px; font-size: 14px;"><i class="fa-solid fa-cart-plus"></i> Select Service / Product</h3>
+            <h3 style="margin-top: 15px; font-size: 14px;"><i class="fa-solid fa-spa"></i> Select Service</h3>
             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
               <select id="serviceSelect" style="flex: 2;">
-                <option value="" data-price="0">-- Choose Service / Product --</option>
+                <option value="" data-price="0">-- Choose Service --</option>
               </select>
-              <button class="btn btn-primary" onclick="addItem()"><i class="fa-solid fa-plus"></i> Add Item</button>
+              <button class="btn btn-primary" onclick="addItem('serviceSelect')"><i class="fa-solid fa-plus"></i> Add Service</button>
+            </div>
+
+            <h3 style="margin-top: 15px; font-size: 14px; color: var(--primary);"><i class="fa-solid fa-boxes-stacked"></i> Select Product (Inventory)</h3>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+              <select id="productPosSelect" style="flex: 2;">
+                <option value="" data-price="0">-- Choose Product --</option>
+              </select>
+              <button class="btn btn-primary" onclick="addItem('productPosSelect')"><i class="fa-solid fa-cart-plus"></i> Add Product</button>
             </div>
 
             <div style="background: #f8fafc; border: 1px dashed var(--border-color); padding: 14px; border-radius: 8px; margin-bottom: 15px;">
@@ -493,6 +612,22 @@ td:last-child { border-right: 1px solid var(--border-color); }
           </div>
           <div class="metric-card">
             <div class="metric-card-header">
+              <span class="metric-title">Period Expenses</span>
+              <div class="metric-icon" style="background:#fee2e2; color:#ef4444;"><i class="fa-solid fa-receipt"></i></div>
+            </div>
+            <div class="metric-val" id="crmTotalExp">₹0.00</div>
+            <div class="metric-sub">Total business outflows</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <span class="metric-title">Net Profit / Loss</span>
+              <div class="metric-icon" id="crmPnLIcon" style="background:#e0f2fe; color:#0369a1;"><i class="fa-solid fa-scale-balanced"></i></div>
+            </div>
+            <div class="metric-val" id="crmNetPnL">₹0.00</div>
+            <div class="metric-sub" id="crmPnLStatus">Calculated P&L</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-card-header">
               <span class="metric-title">Appointments</span>
               <div class="metric-icon" style="background:#e0f2fe; color:#0369a1;"><i class="fa-solid fa-calendar-check"></i></div>
             </div>
@@ -561,6 +696,109 @@ td:last-child { border-right: 1px solid var(--border-color); }
         </div>
       </div>
 
+      <div id="expenses-tab" class="tab-content">
+        <div class="grid-cards">
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <span class="metric-title">Total Gross Revenue</span>
+              <div class="metric-icon" style="background:#dcfce7; color:#10b981;"><i class="fa-solid fa-sack-dollar"></i></div>
+            </div>
+            <div class="metric-val" id="pnlTotalRev">₹0.00</div>
+            <div class="metric-sub">Income from completed services</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <span class="metric-title">Operational Expenses</span>
+              <div class="metric-icon" style="background:#fee2e2; color:#ef4444;"><i class="fa-solid fa-receipt"></i></div>
+            </div>
+            <div class="metric-val" id="pnlTotalOpExpenses">₹0.00</div>
+            <div class="metric-sub">Logged business operating costs</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <span class="metric-title">Staff Salary & Comm.</span>
+              <div class="metric-icon" style="background:#fef3c7; color:#b45309;"><i class="fa-solid fa-users-gear"></i></div>
+            </div>
+            <div class="metric-val" id="pnlTotalStaffCost">₹0.00</div>
+            <div class="metric-sub">Estimated payroll liabilities</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-card-header">
+              <span class="metric-title">Net Profit / Loss</span>
+              <div class="metric-icon" id="pnlNetIcon" style="background:#e0f2fe; color:#0369a1;"><i class="fa-solid fa-scale-balanced"></i></div>
+            </div>
+            <div class="metric-val" id="pnlNetProfitVal">₹0.00</div>
+            <div class="metric-sub" id="pnlNetStatus">Overall financial health</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card-box">
+            <h3><i class="fa-solid fa-plus-circle"></i> Record New Expense</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group">
+                <label>Expense Date</label>
+                <input type="date" id="expenseDate">
+              </div>
+              <div class="form-group">
+                <label>Category</label>
+                <select id="expenseCategory">
+                  <option value="Rent & Utilities">Rent & Utilities</option>
+                  <option value="Salon Products & Inventory">Salon Products & Inventory</option>
+                  <option value="Marketing & Ads">Marketing & Ads</option>
+                  <option value="Equipment & Maintenance">Equipment & Maintenance</option>
+                  <option value="Staff Refreshments & Food">Staff Refreshments & Food</option>
+                  <option value="Miscellaneous Overhead">Miscellaneous Overhead</option>
+                </select>
+              </div>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label>Title / Description</label>
+                <input type="text" id="expenseTitle" placeholder="e.g. Monthly Electricity Bill or Makeup Restock">
+              </div>
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label>Amount (₹)</label>
+                <input type="number" id="expenseAmount" placeholder="e.g. 2500">
+              </div>
+            </div>
+            <button class="btn btn-primary" style="width:100%; margin-top:5px;" onclick="saveExpenseRecord()"><i class="fa-solid fa-floppy-disk"></i> Log Expense</button>
+          </div>
+
+          <div class="card-box">
+            <h3><i class="fa-solid fa-chart-pie"></i> Profit & Loss Statement Summary</h3>
+            <div style="background:#f8fafc; padding:15px; border-radius:8px; border:1px solid var(--border-color); font-size:13px; line-height:2;">
+              <p style="display:flex; justify-content:space-between;"><span>(+) Gross Revenue Collected:</span> <strong style="color:#10b981;" id="summaryRevenue">₹0.00</strong></p>
+              <p style="display:flex; justify-content:space-between;"><span>(-) Operating Expenses Logged:</span> <strong style="color:#ef4444;" id="summaryExpenses">₹0.00</strong></p>
+              <p style="display:flex; justify-content:space-between;"><span>(-) Staff Base Salaries:</span> <strong style="color:#ef4444;" id="summarySalaries">₹0.00</strong></p>
+              <p style="display:flex; justify-content:space-between;"><span>(-) Total Commissions Earned:</span> <strong style="color:#ef4444;" id="summaryCommissions">₹0.00</strong></p>
+              <hr style="margin:10px 0; border:0; border-top:1px dashed var(--border-color);">
+              <p style="display:flex; justify-content:space-between; font-size:15px;">
+                <span><strong>Net Financial Operating Result:</strong></span>
+                <strong id="summaryNetProfit" style="color:#10b981;">₹0.00</strong>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-box">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+            <h3><i class="fa-solid fa-list"></i> Detailed Expense Log</h3>
+            <input type="text" class="search-bar" id="searchExpenseInput" placeholder="🔍 Search expenses..." onkeyup="renderExpenseTable()" style="margin-bottom:0;">
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Amount (₹)</th>
+                <th style="width: 80px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="expenseTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <div id="services-tab" class="tab-content">
         <div class="card-box">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -583,6 +821,68 @@ td:last-child { border-right: 1px solid var(--border-color); }
               </tr>
             </thead>
             <tbody id="servicesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- NEW TAB: Product Inventory Entry -->
+      <div id="inventory-tab" class="tab-content">
+        <div class="card-box">
+          <h3><i class="fa-solid fa-box-open"></i> Add / Edit Inventory Product</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 15px;">
+            <div class="form-group">
+              <label>SKU Code</label>
+              <input type="text" id="prodSku" placeholder="e.g. PRD-001">
+            </div>
+            <div class="form-group">
+              <label>Product Name</label>
+              <input type="text" id="prodName" placeholder="e.g. Hair Serum 100ml">
+            </div>
+            <div class="form-group">
+              <label>Purchase Price (₹)</label>
+              <input type="number" id="prodCost" placeholder="Cost price">
+            </div>
+            <div class="form-group">
+              <label>MRP (₹)</label>
+              <input type="number" id="prodMrp" placeholder="Maximum Retail Price">
+            </div>
+            <div class="form-group">
+              <label>Sale Price (₹)</label>
+              <input type="number" id="prodSalePrice" placeholder="Final selling price">
+            </div>
+            <div class="form-group">
+              <label>Discount (%)</label>
+              <input type="number" id="prodDiscount" placeholder="e.g. 10">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="saveProductInventory()"><i class="fa-solid fa-floppy-disk"></i> Save Product to Inventory</button>
+        </div>
+
+        <div class="card-box">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+            <h3><i class="fa-solid fa-boxes-stacked"></i> Product Inventory Directory</h3>
+            <div style="display: flex; gap: 10px;">
+              <input type="file" id="prodCsvImport" accept=".csv" style="display: none;" onchange="handleProductCSVImport(event)">
+              <button class="btn btn-secondary btn-sm" onclick="document.getElementById('prodCsvImport').click()"><i class="fa-solid fa-file-import"></i> Import Products CSV</button>
+              <button class="btn btn-warning btn-sm" onclick="exportProductCSV()"><i class="fa-solid fa-file-export"></i> Export Products CSV</button>
+            </div>
+          </div>
+
+          <input type="text" class="search-bar" id="searchInventory" placeholder="🔍 Search product by SKU or name..." onkeyup="renderInventoryTable()">
+
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Product Name</th>
+                <th>Purchase Cost</th>
+                <th>MRP</th>
+                <th>Sale Price</th>
+                <th>Discount (%)</th>
+                <th style="width: 100px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryTableBody"></tbody>
           </table>
         </div>
       </div>
@@ -641,6 +941,7 @@ td:last-child { border-right: 1px solid var(--border-color); }
                 <th>Date</th>
                 <th>Client</th>
                 <th>Phone</th>
+                <th>Staff</th>
                 <th>Services</th>
                 <th>Total</th>
                 <th>Paid</th>
@@ -653,12 +954,151 @@ td:last-child { border-right: 1px solid var(--border-color); }
         </div>
       </div>
 
+      <div id="login-manage-tab" class="tab-content">
+        <div class="grid-2">
+          <div class="card-box">
+            <h3><i class="fa-solid fa-toggle-on"></i> Login Security Control</h3>
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0;">
+              <div>
+                <strong>Enable Login Security Prompt</strong>
+                <p style="font-size: 12px; color: var(--text-muted);">Require user ID & password popup when opening software.</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="loginToggle" onchange="toggleLoginSetting(this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="card-box">
+            <h3><i class="fa-solid fa-user-plus"></i> Add / Manage User Accounts (Max 4)</h3>
+            <div class="form-group">
+              <label>User ID / Username</label>
+              <input type="text" id="accUserId" placeholder="e.g. cashier1">
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" id="accPassword" placeholder="Enter Password">
+            </div>
+            <div class="form-group">
+              <label>Role</label>
+              <select id="accRole">
+                <option value="cashier">Cashier (All tabs except Backup, No bill edit/delete)</option>
+                <option value="manager">Manager (All tabs except Backup, No bill edit/delete)</option>
+                <option value="admin">Admin (Full Access & Edit/Delete Permission)</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" style="width: 100%;" onclick="saveUserAccount()"><i class="fa-solid fa-floppy-disk"></i> Save User Account</button>
+          </div>
+        </div>
+
+        <div class="card-box">
+          <h3><i class="fa-solid fa-users-shield"></i> Active Login Accounts</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>User ID</th>
+                <th>Role</th>
+                <th>Password</th>
+                <th style="width: 100px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="loginAccountsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="staff-comm-tab" class="tab-content">
+        <div class="grid-2">
+          <div class="card-box">
+            <h3><i class="fa-solid fa-user-plus"></i> Add Staff Profile</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="staffName" placeholder="Staff Name">
+              </div>
+              <div class="form-group">
+                <label>Mobile Number</label>
+                <input type="text" id="staffMobile" placeholder="10-digit Mobile Number">
+              </div>
+              <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="staffEmail" placeholder="staff@example.com">
+              </div>
+              <div class="form-group">
+                <label>Date of Joining</label>
+                <input type="date" id="staffDoj">
+              </div>
+              <div class="form-group">
+                <label>Monthly Salary (₹)</label>
+                <input type="number" id="staffSalary" placeholder="e.g. 15000">
+              </div>
+              <div class="form-group">
+                <label>Govt ID (Aadhaar / PAN)</label>
+                <input type="text" id="staffGovtId" placeholder="ID Number">
+              </div>
+            </div>
+
+            <h3 style="font-size: 14px; margin-top: 10px;"><i class="fa-solid fa-percent"></i> Commission Rules (% Rate)</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+              <div class="form-group">
+                <label>Service Provided (%)</label>
+                <input type="number" id="commService" value="5" placeholder="%">
+              </div>
+              <div class="form-group">
+                <label>Revenue Generated (%)</label>
+                <input type="number" id="commRevenue" value="2" placeholder="%">
+              </div>
+              <div class="form-group">
+                <label>Product Sold (%)</label>
+                <input type="number" id="commProduct" value="10" placeholder="%">
+              </div>
+            </div>
+
+            <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" onclick="saveStaffProfile()"><i class="fa-solid fa-check"></i> Save Staff Member</button>
+          </div>
+
+          <div class="card-box" style="height: fit-content;">
+            <h3><i class="fa-solid fa-chart-pie"></i> Staff Performance Summary</h3>
+            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+              <p style="font-size: 13px; margin-bottom: 8px;">Select staff to view earnings:</p>
+              <select id="staffSelectFilter" onchange="renderStaffCommissionSummary()">
+                <option value="">-- All Staff Members --</option>
+              </select>
+              <div id="staffCommissionReport" style="margin-top: 15px; font-size: 13px; line-height: 1.8;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-box">
+          <h3><i class="fa-solid fa-address-card"></i> Staff Directory & Commission Details</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Mobile</th>
+                <th>Email</th>
+                <th>Govt ID</th>
+                <th>DOJ</th>
+                <th>Salary</th>
+                <th>Service Comm (%)</th>
+                <th>Rev Comm (%)</th>
+                <th>Prod Comm (%)</th>
+                <th>Total Revenue Generated</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="staffTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <div id="backup-tab" class="tab-content">
         <div class="grid-2">
           <div class="card-box">
             <h3><i class="fa-solid fa-download"></i> Export Data Backup</h3>
             <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">
-              Export all software records (Service Catalogue, Client Profiles, Sales History, and Loyalty Balances) into a single JSON backup file.
+              Export all software records (Service Catalogue, Products, Client Profiles, Sales History, Expenses, and Loyalty Balances) into a single JSON backup file.
             </p>
             <button class="btn btn-primary" onclick="exportFullSystemBackup()">
               <i class="fa-solid fa-file-export"></i> Download Backup File
@@ -673,17 +1113,11 @@ td:last-child { border-right: 1px solid var(--border-color); }
               <div class="form-group"><label>Supabase Publishable / Anon Key</label><input type="password" id="supabaseKey" placeholder="Paste your browser-safe key"></div>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-              <button class="btn btn-primary" onclick="connectSupabase()"><i class="fa-solid fa-link"></i> Connect & Start Sync</button>
-              <button class="btn btn-success" onclick="backupToSupabase()"><i class="fa-solid fa-cloud-arrow-up"></i> Sync Now</button>
-              <button class="btn btn-warning" onclick="restoreFromSupabase()"><i class="fa-solid fa-cloud-arrow-down"></i> Restore / Merge Cloud</button>
+              <button class="btn btn-primary" onclick="connectSupabase()"><i class="fa-solid fa-link"></i> Connect to Supabase</button>
+              <button class="btn btn-success" onclick="backupToSupabase()"><i class="fa-solid fa-cloud-arrow-up"></i> Backup to Supabase</button>
+              <button class="btn btn-warning" onclick="restoreFromSupabase()"><i class="fa-solid fa-cloud-arrow-down"></i> Restore from Supabase</button>
               <button class="btn btn-danger" onclick="disconnectSupabase()"><i class="fa-solid fa-link-slash"></i> Disconnect</button>
               <span id="supabaseStatus" style="font-size:13px;font-weight:600;">Not connected</span>
-            </div>
-            <div style="margin-top:14px;padding:12px 14px;border:1px solid var(--border-color);border-radius:8px;background:#f8fafc;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:12px;">
-              <div><strong>Device:</strong> <span id="syncDeviceName">This device</span></div>
-              <div><strong>Auto backup:</strong> <span id="autoBackupState">Enabled</span></div>
-              <div><strong>Last cloud sync:</strong> <span id="lastCloudSync">Never</span></div>
-              <div><strong>Sync mode:</strong> Every 10 sec + every bill</div>
             </div>
             <small style="display:block;margin-top:10px;color:var(--text-muted);">Use only a Supabase publishable/anon key in this browser. Never paste a service-role/secret key here.</small>
           </div>
@@ -718,13 +1152,14 @@ td:last-child { border-right: 1px solid var(--border-color); }
   <p><strong>Invoice:</strong> #<span id="rInvoice"></span></p>
   <p><strong>Date:</strong> <span id="rDate"></span></p>
   <p><strong>Client:</strong> <span id="rName"></span> (<span id="rPhone"></span>)</p>
+  <p><strong>Staff:</strong> <span id="rStaffName">N/A</span></p>
   <p id="rEmailLine" style="display:none;"><strong>Email:</strong> <span id="rEmail"></span></p>
   <p id="rAddressLine" style="display:none;"><strong>Address:</strong> <span id="rAddress"></span></p>
   <p>--------------------------------</p>
   <table style="width:100%; border:none; font-size:12px;">
     <thead>
       <tr style="border-bottom:1px dashed #000;">
-        <th style="text-align:left;">Service</th>
+        <th style="text-align:left;">Service / Item</th>
         <th style="text-align:right;">Amt</th>
       </tr>
     </thead>
@@ -746,7 +1181,7 @@ td:last-child { border-right: 1px solid var(--border-color); }
 </div>
 
 <script>
-// Default Catalog
+// Catalog Defaults
 const defaultServices = [
   { name: "HD Bridal Makeup", price: 15000 },
   { name: "Airbrush Makeup", price: 18000 },
@@ -756,20 +1191,33 @@ const defaultServices = [
   { name: "Keratin Treatment", price: 4500 }
 ];
 
-// Data State
+const defaultProducts = [
+  { sku: "PRD-001", name: "L'Oreal Hair Serum 100ml", cost: 350, mrp: 600, salePrice: 540, discount: 10 },
+  { sku: "PRD-002", name: "MAC Matte Lipstick", cost: 1100, mrp: 1900, salePrice: 1710, discount: 10 }
+];
+
+// App Data State
 let services = JSON.parse(localStorage.getItem('nitusharma_items')) || defaultServices;
+let products = JSON.parse(localStorage.getItem('nitusharma_products')) || defaultProducts;
 let customers = JSON.parse(localStorage.getItem('nitusharma_customers')) || {};
 let sales = JSON.parse(localStorage.getItem('nitusharma_sales')) || [];
+let staffMembers = JSON.parse(localStorage.getItem('nitusharma_staff')) || [];
+let expenses = JSON.parse(localStorage.getItem('nitusharma_expenses')) || [];
+let userAccounts = JSON.parse(localStorage.getItem('nitusharma_accounts')) || [
+  { id: 'admin', pass: 'admin123', role: 'admin' }
+];
+let loginEnabled = JSON.parse(localStorage.getItem('nitusharma_login_enabled')) || false;
+let currentUser = JSON.parse(localStorage.getItem('nitusharma_current_user')) || { id: 'admin', role: 'admin' };
+
 let cart = [];
 let manualPaidEdited = false;
 let editingSaleId = null;
 
-// CRM Filter state
+// CRM State
 let currentFilter = 'all';
 let customStart = null;
 let customEnd = null;
 
-// Chart references
 let salesChartInstance = null;
 let productsChartInstance = null;
 
@@ -778,1506 +1226,980 @@ const tabTitles = {
   'promo-tab': { title: 'Promotions & Offer Campaign', sub: 'Broadcast custom offer banners and discounts directly to clients via WhatsApp' },
   'loyalty-tab': { title: 'Loyalty & Wallet Program', sub: 'Manage reward points, digital wallet balances & referral incentives' },
   'crm-tab': { title: 'CRM & Business Analytics', sub: 'Client lifecycle insights, revenue velocity reports & retention tools' },
+  'expenses-tab': { title: 'Expense Management & P&L', sub: 'Log operational costs, manage business overheads & track Profit & Loss account' },
   'services-tab': { title: 'Service & Treatment Menu', sub: 'Manage salon catalogue, prices and CSV import/export' },
+  'inventory-tab': { title: 'Product Inventory Entry', sub: 'Manage retail inventory products, cost prices, MRP, and discount entries' },
   'customers-tab': { title: 'Client Directory', sub: 'Comprehensive history of client visits, spending & balance dues' },
   'sales-tab': { title: 'Sales History & Logs', sub: 'Complete historical transaction audit log with direct WhatsApp/Receipt actions' },
+  'login-manage-tab': { title: 'Login & Security Settings', sub: 'Switch login prompts on/off and manage user roles (Cashier, Manager, Admin)' },
+  'staff-comm-tab': { title: 'Staff & Commission Management', sub: 'Manage staff profiles, government IDs, monthly salaries & commission rules' },
   'backup-tab': { title: 'Data Backup & Restore', sub: 'Export complete system database or import backup files to restore system state' }
 };
 
 window.onload = function() {
+  checkLoginStatus();
   populateServiceDropdown();
+  populateProductPosDropdown();
+  populateStaffDropdown();
+  renderStaffTable();
+  renderStaffCommissionSummary();
+  renderLoginAccounts();
+  updateHighestLowestStaffRevenue();
+  
+  if (document.getElementById('expenseDate')) {
+    document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
+  }
+
+  if (document.getElementById('loginToggle')) {
+    document.getElementById('loginToggle').checked = loginEnabled;
+  }
+
   const savedUrl = localStorage.getItem('nitusharma_supabase_url') || '';
   const savedKey = localStorage.getItem('nitusharma_supabase_key') || '';
   if (document.getElementById('supabaseUrl')) document.getElementById('supabaseUrl').value = savedUrl;
   if (document.getElementById('supabaseKey')) document.getElementById('supabaseKey').value = savedKey;
-  if (savedUrl && savedKey) updateSupabaseStatus('Credentials saved locally');
-  initializeCloudSync();
 };
 
-function switchTab(tabId, element) {
-  document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-  document.querySelectorAll('.nav-link').forEach(btn => btn.classList.remove('active'));
-  document.getElementById(tabId).classList.add('active');
-  element.classList.add('active');
+/* INVENTORY MANAGEMENT FUNCTIONS */
+function saveProductInventory() {
+  const sku = document.getElementById('prodSku').value.trim();
+  const name = document.getElementById('prodName').value.trim();
+  const cost = parseFloat(document.getElementById('prodCost').value) || 0;
+  const mrp = parseFloat(document.getElementById('prodMrp').value) || 0;
+  const salePrice = parseFloat(document.getElementById('prodSalePrice').value) || 0;
+  const discount = parseFloat(document.getElementById('prodDiscount').value) || 0;
 
-  // Update Header text
-  if (tabTitles[tabId]) {
-    document.getElementById('pageTitle').innerText = tabTitles[tabId].title;
-    document.getElementById('pageSubtitle').innerText = tabTitles[tabId].sub;
+  if (!sku || !name || salePrice <= 0) {
+    return alert('Please fill in required fields: SKU, Name, and Sale Price.');
   }
 
-  if (tabId === 'promo-tab') renderPromoCustomerTable();
-  if (tabId === 'loyalty-tab') renderLoyaltyTab();
-  if (tabId === 'crm-tab') renderCRM();
-  if (tabId === 'services-tab') renderServicesTable();
-  if (tabId === 'customers-tab') renderCustomers();
-  if (tabId === 'sales-tab') renderSales();
+  const idx = products.findIndex(p => p.sku === sku);
+  const pData = { sku, name, cost, mrp, salePrice, discount };
+
+  if (idx > -1) {
+    products[idx] = pData;
+  } else {
+    products.push(pData);
+  }
+
+  localStorage.setItem('nitusharma_products', JSON.stringify(products));
+  renderInventoryTable();
+  populateProductPosDropdown();
+  
+  document.getElementById('prodSku').value = '';
+  document.getElementById('prodName').value = '';
+  document.getElementById('prodCost').value = '';
+  document.getElementById('prodMrp').value = '';
+  document.getElementById('prodSalePrice').value = '';
+  document.getElementById('prodDiscount').value = '';
+  alert('Product inventory updated successfully!');
 }
 
+function deleteProductInventory(sku) {
+  if (confirm('Delete this product from inventory?')) {
+    products = products.filter(p => p.sku !== sku);
+    localStorage.setItem('nitusharma_products', JSON.stringify(products));
+    renderInventoryTable();
+    populateProductPosDropdown();
+  }
+}
+
+function renderInventoryTable() {
+  const tbody = document.getElementById('inventoryTableBody');
+  const query = (document.getElementById('searchInventory')?.value || '').toLowerCase();
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  const filtered = products.filter(p => p.sku.toLowerCase().includes(query) || p.name.toLowerCase().includes(query));
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No products found.</td></tr>';
+    return;
+  }
+
+  filtered.forEach(p => {
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${p.sku}</strong></td>
+        <td>${p.name}</td>
+        <td>₹${p.cost.toFixed(2)}</td>
+        <td>₹${p.mrp.toFixed(2)}</td>
+        <td style="color:#10b981; font-weight:bold;">₹${p.salePrice.toFixed(2)}</td>
+        <td>${p.discount}%</td>
+        <td>
+          <button class="btn btn-danger btn-sm" onclick="deleteProductInventory('${p.sku}')"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function populateProductPosDropdown() {
+  const select = document.getElementById('productPosSelect');
+  if (!select) return;
+  select.innerHTML = '<option value="" data-price="0">-- Choose Product --</option>';
+  products.forEach(p => {
+    select.innerHTML += `<option value="${p.name}" data-price="${p.salePrice}">${p.sku} - ${p.name} (₹${p.salePrice})</option>`;
+  });
+}
+
+function exportProductCSV() {
+  let csv = 'SKU,Product Name,Purchase Price,MRP,Sale Price,Discount\n';
+  products.forEach(p => {
+    csv += `"${p.sku}","${p.name}",${p.cost},${p.mrp},${p.salePrice},${p.discount}\n`;
+  });
+  downloadCSV(csv, 'Product_Inventory.csv');
+}
+
+function handleProductCSVImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const lines = evt.target.result.split('\n');
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      const cols = lines[i].split(',').map(c => c.replace(/"/g, '').trim());
+      if (cols.length >= 5) {
+        const pData = {
+          sku: cols[0],
+          name: cols[1],
+          cost: parseFloat(cols[2]) || 0,
+          mrp: parseFloat(cols[3]) || 0,
+          salePrice: parseFloat(cols[4]) || 0,
+          discount: parseFloat(cols[5]) || 0
+        };
+        const idx = products.findIndex(p => p.sku === pData.sku);
+        if (idx > -1) products[idx] = pData;
+        else products.push(pData);
+      }
+    }
+    localStorage.setItem('nitusharma_products', JSON.stringify(products));
+    renderInventoryTable();
+    populateProductPosDropdown();
+    alert('Products imported successfully!');
+  };
+  reader.readAsText(file);
+}
+
+/* POS TERMINAL & INVOICING */
 function populateServiceDropdown() {
   const select = document.getElementById('serviceSelect');
-  select.innerHTML = '<option value="" data-price="0">-- Choose Service / Product --</option>';
+  if (!select) return;
+  select.innerHTML = '<option value="" data-price="0">-- Choose Service --</option>';
   services.forEach(s => {
-    select.innerHTML += `<option value="${s.name}" data-price="${s.price}">${s.name} - ₹${s.price}</option>`;
+    select.innerHTML += `<option value="${s.name}" data-price="${s.price}">${s.name} (₹${s.price})</option>`;
   });
+}
+
+function addItem(sourceSelectId = 'serviceSelect') {
+  const select = document.getElementById(sourceSelectId);
+  const selectedOption = select.options[select.selectedIndex];
+  const name = selectedOption.value;
+  const price = parseFloat(selectedOption.getAttribute('data-price'));
+
+  if (!name || isNaN(price) || price <= 0) {
+    return alert('Please select a valid item.');
+  }
+
+  cart.push({ name, price });
+  renderCart();
+  select.selectedIndex = 0;
 }
 
 function saveNewService() {
   const name = document.getElementById('newServiceName').value.trim();
   const price = parseFloat(document.getElementById('newServicePrice').value);
 
-  if (!name || isNaN(price)) return alert('Enter valid service name and price.');
-
-  if (services.find(s => s.name.toLowerCase() === name.toLowerCase())) {
-    return alert('Service already exists in catalog.');
-  }
+  if (!name || isNaN(price) || price <= 0) return alert('Enter valid service name and price.');
 
   services.push({ name, price });
   localStorage.setItem('nitusharma_items', JSON.stringify(services));
-
   populateServiceDropdown();
   document.getElementById('newServiceName').value = '';
   document.getElementById('newServicePrice').value = '';
-  alert('New service added successfully!');
+  alert('Service saved successfully!');
 }
 
-function handleCSVImport(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const text = e.target.result;
-    const lines = text.split(/\r\n|\n/);
-    let addedCount = 0;
-    let updatedCount = 0;
-
-    lines.forEach((line) => {
-      if (!line.trim()) return;
-      const match = line.match(/(?:^|,)("(?:[^"]|"")*"|[^,]*)/g);
-      if (!match || match.length < 2) return;
-
-      const cleanCol = str => str.replace(/^,/, '').replace(/^"(.*)"$/, '$1').replace(/""/g, '"').trim();
-      const name = cleanCol(match[0]);
-      const priceStr = cleanCol(match[1]).replace(/[^\d.]/g, '');
-      const price = parseFloat(priceStr);
-
-      if (!name || isNaN(price) || name.toLowerCase().includes('item name') || name.toLowerCase().includes('service name')) return;
-
-      const existingIndex = services.findIndex(s => s.name.toLowerCase() === name.toLowerCase());
-      if (existingIndex > -1) {
-        services[existingIndex].price = price;
-        updatedCount++;
-      } else {
-        services.push({ name, price });
-        addedCount++;
-      }
-    });
-
-    localStorage.setItem('nitusharma_items', JSON.stringify(services));
-    populateServiceDropdown();
-    renderServicesTable();
-    event.target.value = '';
-    alert(`CSV Import complete!\n• Added: ${addedCount} services\n• Updated: ${updatedCount} services`);
-  };
-  reader.readAsText(file);
-}
-
-function deleteService(index) {
-  if (confirm('Delete this service from catalog?')) {
-    services.splice(index, 1);
-    localStorage.setItem('nitusharma_items', JSON.stringify(services));
-    populateServiceDropdown();
-    renderServicesTable();
-  }
-}
-
-function renderServicesTable() {
-  const query = document.getElementById('searchService').value.toLowerCase();
-  const tbody = document.getElementById('servicesTableBody');
+function renderCart() {
+  const tbody = document.getElementById('billItems');
+  if (!tbody) return;
   tbody.innerHTML = '';
 
-  services.forEach((s, index) => {
-    if (s.name.toLowerCase().includes(query)) {
-      tbody.innerHTML += `
-        <tr>
-          <td>${s.name}</td>
-          <td>₹${s.price.toFixed(2)}</td>
-          <td><button class="btn btn-danger btn-sm" onclick="deleteService(${index})"><i class="fa-solid fa-trash"></i></button></td>
-        </tr>
-      `;
-    }
+  cart.forEach((item, index) => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${item.name}</td>
+        <td>₹${item.price.toFixed(2)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="removeItem(${index})"><i class="fa-solid fa-trash"></i></button></td>
+      </tr>
+    `;
   });
-}
-
-function addItem() {
-  const select = document.getElementById('serviceSelect');
-  const name = select.value;
-  const price = parseFloat(select.options[select.selectedIndex].getAttribute('data-price'));
-
-  if (!name) return alert('Select a valid service');
-
-  cart.push({ name, price });
-  renderCart();
   calculateTotal();
 }
 
 function removeItem(index) {
   cart.splice(index, 1);
   renderCart();
-  calculateTotal();
 }
 
-function renderCart() {
-  const tbody = document.getElementById('billItems');
-  tbody.innerHTML = '';
-  cart.forEach((item, index) => {
-    tbody.innerHTML += `
-      <tr>
-        <td>${item.name}</td>
-        <td>₹${item.price.toFixed(2)}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="removeItem(${index})">✕</button></td>
-      </tr>
-    `;
-  });
-}
-
-function calculateTotal(isUserTypingPaid = false) {
-  if (isUserTypingPaid) {
-    manualPaidEdited = true;
-  }
-
+function calculateTotal(manualEditPaid = false) {
   const subtotal = cart.reduce((sum, item) => sum + item.price, 0);
   const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
   const discount = parseFloat(document.getElementById('discount').value) || 0;
+  const redeemPts = parseFloat(document.getElementById('redeemPointsInput').value) || 0;
+  const walletUsed = parseFloat(document.getElementById('useWalletInput').value) || 0;
 
   const taxAmount = (subtotal * taxRate) / 100;
-  
-  const redeemPoints = parseFloat(document.getElementById('redeemPointsInput').value) || 0;
-  const useWallet = parseFloat(document.getElementById('useWalletInput').value) || 0;
-
-  const total = Math.max(0, subtotal + taxAmount - discount - redeemPoints - useWallet);
-
-  const paidInput = document.getElementById('paidAmount');
-  if (!manualPaidEdited) {
-    paidInput.value = total > 0 ? total.toFixed(2) : '';
-  }
-
-  const paid = parseFloat(paidInput.value) || 0;
-  const due = Math.max(0, total - paid);
+  let total = (subtotal + taxAmount) - discount - redeemPts - walletUsed;
+  if (total < 0) total = 0;
 
   document.getElementById('subtotal').innerText = subtotal.toFixed(2);
   document.getElementById('grandTotal').innerText = total.toFixed(2);
-  document.getElementById('dueAmount').innerText = due.toFixed(2);
 
-  return { subtotal, taxAmount, discount, redeemPoints, useWallet, total, paid, due };
+  const paidInput = document.getElementById('paidAmount');
+  if (manualEditPaid) manualPaidEdited = true;
+  if (!manualPaidEdited) paidInput.value = total.toFixed(2);
+
+  const paid = parseFloat(paidInput.value) || 0;
+  const due = total - paid;
+  document.getElementById('dueAmount').innerText = (due > 0 ? due : 0).toFixed(2);
 }
 
 function autoFillCustomer() {
   const phone = document.getElementById('custPhone').value.trim();
-  const loyaltyBar = document.getElementById('posLoyaltyBar');
-
+  const bar = document.getElementById('posLoyaltyBar');
   if (customers[phone]) {
     document.getElementById('custName').value = customers[phone].name || '';
     document.getElementById('custEmail').value = customers[phone].email || '';
     document.getElementById('custAddress').value = customers[phone].address || '';
     
-    // Show Loyalty points & wallet balances
-    loyaltyBar.style.display = 'block';
-    const pts = customers[phone].points || 0;
-    const wBal = customers[phone].wallet || 0;
-    document.getElementById('posPointsBalance').innerText = pts;
-    document.getElementById('posPointsWorth').innerText = '₹' + pts;
-    document.getElementById('posWalletBalance').innerText = '₹' + wBal.toFixed(2);
-  } else {
-    loyaltyBar.style.display = 'none';
-  }
-}
-
-function processBillData() {
-  const phone = document.getElementById('custPhone').value.trim();
-  const name = document.getElementById('custName').value.trim();
-  const email = document.getElementById('custEmail').value.trim();
-  const address = document.getElementById('custAddress').value.trim();
-
-  if (!phone || !name) {
-    alert('Please enter client phone and name.');
-    return null;
-  }
-  if (cart.length === 0) {
-    alert('Cart is empty.');
-    return null;
-  }
-
-  const totals = calculateTotal();
-  const dateStr = new Date().toISOString().split('T')[0];
-  const itemsDetail = cart.map(i => ({ name: i.name, price: i.price }));
-
-  // EDIT EXISTING BILL
-  if (editingSaleId) {
-    const saleIndex = sales.findIndex(s => s.id === editingSaleId);
-    if (saleIndex === -1) {
-      alert('The bill you are trying to edit could not be found.');
-      editingSaleId = null;
-      return null;
+    if (bar) {
+      bar.style.display = 'block';
+      document.getElementById('posPointsBalance').innerText = customers[phone].points || 0;
+      document.getElementById('posPointsWorth').innerText = '₹' + (customers[phone].points || 0);
+      document.getElementById('posWalletBalance').innerText = '₹' + (customers[phone].wallet || 0).toFixed(2);
     }
-
-    const oldSale = sales[saleIndex];
-    reverseSaleFromCustomer(oldSale);
-
-    if (!customers[phone]) {
-      customers[phone] = { phone, name, email: email, address: address, visits: 0, totalSpent: 0, pendingDues: 0, points: 0, wallet: 0, lastVisit: dateStr, referredBy: null, referralCompleted: false };
-    }
-
-    const earnedPoints = Math.floor(totals.total / 100);
-    customers[phone].points = (customers[phone].points || 0) + earnedPoints;
-    customers[phone].visits = (customers[phone].visits || 0) + 1;
-    customers[phone].totalSpent = (customers[phone].totalSpent || 0) + totals.total;
-    customers[phone].pendingDues = (customers[phone].pendingDues || 0) + totals.due;
-    customers[phone].lastVisit = oldSale.date || dateStr;
-    customers[phone].name = name;
-    customers[phone].email = email;
-    customers[phone].address = address;
-    customers[phone]._syncUpdatedAt = new Date().toISOString();
-
-    const updatedSale = {
-      ...oldSale,
-      date: oldSale.date || dateStr,
-      fullDate: new Date().toLocaleString(),
-      customerPhone: phone,
-      customerName: name,
-      customerEmail: email,
-      customerAddress: address,
-      subtotal: totals.subtotal,
-      taxAmount: totals.taxAmount,
-      discount: totals.discount,
-      redeemPoints: totals.redeemPoints,
-      useWallet: totals.useWallet,
-      earnedPoints: earnedPoints,
-      total: totals.total,
-      paid: totals.paid,
-      due: totals.due,
-      itemsDetail: itemsDetail,
-      itemsSummary: cart.map(i => i.name).join(', '),
-      syncUpdatedAt: new Date().toISOString()
-    };
-
-    // Apply redeemed points/wallet against the newly edited bill.
-    customers[phone].points = Math.max(0, (customers[phone].points || 0) - totals.redeemPoints);
-    customers[phone].wallet = Math.max(0, (customers[phone].wallet || 0) - totals.useWallet);
-
-    sales[saleIndex] = updatedSale;
-    localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
-    localStorage.setItem('nitusharma_sales', JSON.stringify(sales));
-
-    editingSaleId = null;
-    hideEditingBanner();
-    return updatedSale;
-  }
-
-  // CREATE NEW BILL
-  if (!customers[phone]) {
-    customers[phone] = { phone, name, email: email, address: address, visits: 0, totalSpent: 0, pendingDues: 0, points: 0, wallet: 0, lastVisit: dateStr, referredBy: null, referralCompleted: false };
-  }
-
-  // Check and process Pending Referral Bonus on FIRST BILLING
-  if (customers[phone].visits === 0 && customers[phone].referredBy && !customers[phone].referralCompleted) {
-    const referrerPhone = customers[phone].referredBy;
-    if (customers[referrerPhone]) {
-      customers[referrerPhone].points = (customers[referrerPhone].points || 0) + 100;
-      customers[phone].points = (customers[phone].points || 0) + 100;
-      customers[phone].referralCompleted = true;
-      alert(`🎉 Referral Bonus Unlocked!\n100 points credited to both ${customers[phone].name} and Referrer (${customers[referrerPhone].name}).`);
-    }
-  }
-
-  if (totals.redeemPoints > 0) {
-    customers[phone].points = Math.max(0, (customers[phone].points || 0) - totals.redeemPoints);
-  }
-  if (totals.useWallet > 0) {
-    customers[phone].wallet = Math.max(0, (customers[phone].wallet || 0) - totals.useWallet);
-  }
-
-  const earnedPoints = Math.floor(totals.total / 100);
-  customers[phone].points = (customers[phone].points || 0) + earnedPoints;
-  customers[phone].visits += 1;
-  customers[phone].totalSpent += totals.total;
-  customers[phone].pendingDues = (customers[phone].pendingDues || 0) + totals.due;
-  customers[phone].lastVisit = dateStr;
-  customers[phone].name = name;
-    customers[phone].email = email;
-    customers[phone].address = address;
-    customers[phone]._syncUpdatedAt = new Date().toISOString();
-
-  localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
-
-  const saleRecord = {
-    id: 'MNS-' + Date.now().toString().slice(-6),
-    date: dateStr,
-    fullDate: new Date().toLocaleString(),
-    customerPhone: phone,
-    customerName: name,
-    customerEmail: email,
-    customerAddress: address,
-    subtotal: totals.subtotal,
-    taxAmount: totals.taxAmount,
-    discount: totals.discount,
-    redeemPoints: totals.redeemPoints,
-    useWallet: totals.useWallet,
-    earnedPoints: earnedPoints,
-    total: totals.total,
-    paid: totals.paid,
-    due: totals.due,
-    itemsDetail: itemsDetail,
-    itemsSummary: cart.map(i => i.name).join(', '),
-    syncUpdatedAt: new Date().toISOString()
-  };
-  sales.push(saleRecord);
-  localStorage.setItem('nitusharma_sales', JSON.stringify(sales));
-
-  return saleRecord;
-}
-
-function reverseSaleFromCustomer(sale) {
-  const phone = sale.customerPhone;
-  if (!customers[phone]) return;
-
-  const c = customers[phone];
-  c.visits = Math.max(0, (c.visits || 0) - 1);
-  c.totalSpent = Math.max(0, (c.totalSpent || 0) - (sale.total || 0));
-  c.pendingDues = Math.max(0, (c.pendingDues || 0) - (sale.due || 0));
-
-  // Return points/wallet used by this bill and remove points earned by it.
-  c.points = Math.max(0, (c.points || 0) - (sale.earnedPoints || 0));
-  c.points += (sale.redeemPoints || 0);
-  c.wallet = (c.wallet || 0) + (sale.useWallet || 0);
-
-  if (c.visits === 0) {
-    c.lastVisit = 'Never';
-  } else {
-    const remaining = sales
-      .filter(s => s.id !== sale.id && s.customerPhone === phone)
-      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
-    c.lastVisit = remaining.length ? remaining[0].date : 'Never';
+  } else if (bar) {
+    bar.style.display = 'none';
   }
 }
 
 function saveAndPrintBill() {
-  const sale = processBillData();
+  const sale = processCurrentSale();
   if (!sale) return;
-  autoBackupAfterBill(sale);
-  printSaleRecord(sale);
+  printBillById(sale.id);
   resetBillForm();
 }
 
-function saveAndSendWhatsApp() {
-  const sale = processBillData();
-  if (!sale) return;
-  autoBackupAfterBill(sale);
-  sendWhatsAppSaleRecord(sale);
-  resetBillForm();
-}
-
-function startEditBill(saleId) {
+function printBillById(saleId) {
   const sale = sales.find(s => s.id === saleId);
-  if (!sale) return alert('Bill not found.');
+  if (!sale) return alert('Bill not found!');
 
-  editingSaleId = saleId;
-  document.getElementById('custPhone').value = sale.customerPhone || '';
-  document.getElementById('custName').value = sale.customerName || '';
-  document.getElementById('custEmail').value = sale.customerEmail || (customers[sale.customerPhone] && customers[sale.customerPhone].email) || '';
-  document.getElementById('custAddress').value = sale.customerAddress || (customers[sale.customerPhone] && customers[sale.customerPhone].address) || '';
-  document.getElementById('taxRate').value = sale.subtotal > 0 ? ((sale.taxAmount || 0) / sale.subtotal * 100).toFixed(2) : '18';
-  document.getElementById('discount').value = sale.discount || 0;
-  document.getElementById('redeemPointsInput').value = sale.redeemPoints || 0;
-  document.getElementById('useWalletInput').value = sale.useWallet || 0;
-  document.getElementById('paidAmount').value = sale.paid !== undefined ? sale.paid : sale.total;
-  manualPaidEdited = true;
-
-  cart = (sale.itemsDetail || []).map(item => ({ name: item.name, price: parseFloat(item.price) || 0 }));
-  renderCart();
-  calculateTotal();
-
-  document.getElementById('editingBillId').innerText = '#' + sale.id;
-  document.getElementById('editingBillBanner').style.display = 'block';
-  switchTab('pos-tab', document.querySelector('[onclick*="pos-tab"]'));
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function cancelEditBill() {
-  editingSaleId = null;
-  hideEditingBanner();
-  resetBillForm();
-}
-
-function hideEditingBanner() {
-  const banner = document.getElementById('editingBillBanner');
-  if (banner) banner.style.display = 'none';
-}
-
-function deleteBill(saleId) {
-  const sale = sales.find(s => s.id === saleId);
-  if (!sale) return alert('Bill not found.');
-
-  const ok = confirm(`Delete bill #${sale.id} for ${sale.customerName}?\n\nThis will remove the bill from Sales History and reverse its customer totals, dues, loyalty points and wallet usage. This action cannot be undone.`);
-  if (!ok) return;
-
-  reverseSaleFromCustomer(sale);
-  sales = sales.filter(s => s.id !== saleId);
-
-  localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
-  localStorage.setItem('nitusharma_sales', JSON.stringify(sales));
-
-  if (editingSaleId === saleId) {
-    editingSaleId = null;
-    hideEditingBanner();
-    resetBillForm();
-  }
-
-  renderCustomers();
-  renderSales();
-  renderCRM();
-  alert(`Bill #${sale.id} has been deleted successfully.`);
-}
-
-function saveAndPrintBill() {
-  const sale = processBillData();
-  if (!sale) return;
-  autoBackupAfterBill(sale);
-  printSaleRecord(sale);
-  resetBillForm();
-}
-
-function saveAndSendWhatsApp() {
-  const sale = processBillData();
-  if (!sale) return;
-  autoBackupAfterBill(sale);
-  sendWhatsAppSaleRecord(sale);
-  resetBillForm();
-}
-
-function printSaleRecord(sale) {
   document.getElementById('rInvoice').innerText = sale.id;
-  document.getElementById('rDate').innerText = sale.fullDate || sale.date;
+  document.getElementById('rDate').innerText = sale.date;
   document.getElementById('rName').innerText = sale.customerName;
   document.getElementById('rPhone').innerText = sale.customerPhone;
-  const emailEl = document.getElementById('rEmail'); const emailLine = document.getElementById('rEmailLine');
-  const addrEl = document.getElementById('rAddress'); const addrLine = document.getElementById('rAddressLine');
-  if (emailEl) emailEl.innerText = sale.customerEmail || ''; if (emailLine) emailLine.style.display = sale.customerEmail ? 'block' : 'none';
-  if (addrEl) addrEl.innerText = sale.customerAddress || ''; if (addrLine) addrLine.style.display = sale.customerAddress ? 'block' : 'none';
-
+  document.getElementById('rStaffName').innerText = sale.staffName || 'N/A';
+  
   const rItems = document.getElementById('rItems');
   rItems.innerHTML = '';
-
   if (sale.itemsDetail && sale.itemsDetail.length > 0) {
     sale.itemsDetail.forEach(item => {
-      rItems.innerHTML += `
-        <tr>
-          <td>${item.name}</td>
-          <td style="text-align:right;">₹${parseFloat(item.price).toFixed(2)}</td>
-        </tr>
-      `;
+      rItems.innerHTML += `<tr><td>${item.name}</td><td style="text-align:right;">₹${item.price.toFixed(2)}</td></tr>`;
     });
-  } else {
-    rItems.innerHTML += `
-      <tr>
-        <td>${sale.itemsSummary}</td>
-        <td style="text-align:right;">₹${parseFloat(sale.total).toFixed(2)}</td>
-      </tr>
-    `;
   }
 
-  const paid = sale.paid !== undefined ? sale.paid : sale.total;
-  const due = sale.due !== undefined ? sale.due : 0;
-
   document.getElementById('rSub').innerText = (sale.subtotal || sale.total).toFixed(2);
-  document.getElementById('rTax').innerText = (sale.taxAmount || 0).toFixed(2);
+  document.getElementById('rTax').innerText = (sale.tax || 0).toFixed(2);
   document.getElementById('rDisc').innerText = (sale.discount || 0).toFixed(2);
-  document.getElementById('rPtsRedeemed').innerText = (sale.redeemPoints || 0).toFixed(2);
-  document.getElementById('rWalletUsed').innerText = (sale.useWallet || 0).toFixed(2);
+  document.getElementById('rPtsRedeemed').innerText = (sale.redeemPts || 0).toFixed(2);
+  document.getElementById('rWalletUsed').innerText = (sale.walletUsed || 0).toFixed(2);
   document.getElementById('rTotal').innerText = sale.total.toFixed(2);
-  document.getElementById('rPaid').innerText = paid.toFixed(2);
-  document.getElementById('rDue').innerText = due.toFixed(2);
+  document.getElementById('rPaid').innerText = sale.paid.toFixed(2);
+  document.getElementById('rDue').innerText = sale.due.toFixed(2);
 
   window.print();
 }
 
-function sendWhatsAppSaleRecord(sale) {
-  let cleanPhone = sale.customerPhone.replace(/\D/g, '');
-  if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+function saveAndSendWhatsApp() {
+  const sale = processCurrentSale();
+  if (!sale) return;
 
-  let itemsText = '';
-  if (sale.itemsDetail && sale.itemsDetail.length > 0) {
-    sale.itemsDetail.forEach((item, index) => {
-      itemsText += `${index + 1}. ${item.name} - ₹${parseFloat(item.price).toFixed(2)}\n`;
-    });
+  const msg = `*MAKEOVER BY NITU SHARMA*\nInvoice #${sale.id}\nClient: ${sale.customerName}\nTotal: ₹${sale.total.toFixed(2)}\nPaid: ₹${sale.paid.toFixed(2)}\nDue: ₹${sale.due.toFixed(2)}\nThank you!`;
+  window.open(`https://wa.me/91${sale.customerPhone}?text=${encodeURIComponent(msg)}`);
+  resetBillForm();
+}
+
+function processCurrentSale() {
+  if (cart.length === 0) { alert('Cart is empty.'); return null; }
+  const phone = document.getElementById('custPhone').value.trim();
+  const name = document.getElementById('custName').value.trim();
+  const staffName = document.getElementById('billStaffSelect').value;
+
+  if (!phone || !name) { alert('Client Name and Mobile Number required.'); return null; }
+
+  const subtotal = parseFloat(document.getElementById('subtotal').innerText) || 0;
+  const tax = parseFloat(document.getElementById('taxRate').value) || 0;
+  const discount = parseFloat(document.getElementById('discount').value) || 0;
+  const redeemPts = parseFloat(document.getElementById('redeemPointsInput').value) || 0;
+  const walletUsed = parseFloat(document.getElementById('useWalletInput').value) || 0;
+  const total = parseFloat(document.getElementById('grandTotal').innerText) || 0;
+  const paid = parseFloat(document.getElementById('paidAmount').value) || 0;
+  const due = total - paid;
+
+  const saleId = editingSaleId ? editingSaleId : 'MNS-' + Date.now().toString().slice(-6);
+  const sale = {
+    id: saleId,
+    date: new Date().toISOString().split('T')[0],
+    customerPhone: phone,
+    customerName: name,
+    staffName,
+    itemsDetail: [...cart],
+    subtotal,
+    tax,
+    discount,
+    redeemPts,
+    walletUsed,
+    total,
+    paid,
+    due: due > 0 ? due : 0
+  };
+
+  if (editingSaleId) {
+    const idx = sales.findIndex(s => s.id === editingSaleId);
+    if (idx > -1) sales[idx] = sale;
+    editingSaleId = null;
   } else {
-    itemsText = `• ${sale.itemsSummary}\n`;
+    sales.push(sale);
   }
 
-  const sub = sale.subtotal ? sale.subtotal.toFixed(2) : sale.total.toFixed(2);
-  const disc = sale.discount ? sale.discount.toFixed(2) : '0.00';
-  const paid = sale.paid !== undefined ? sale.paid.toFixed(2) : sale.total.toFixed(2);
-  const due = sale.due !== undefined ? sale.due.toFixed(2) : '0.00';
+  // Update Customer Stats
+  if (!customers[phone]) {
+    customers[phone] = { name, phone, visits: 0, totalSpent: 0, pendingDues: 0, points: 0, wallet: 0 };
+  }
+  customers[phone].visits = (customers[phone].visits || 0) + 1;
+  customers[phone].totalSpent = (customers[phone].totalSpent || 0) + total;
+  customers[phone].pendingDues = (customers[phone].pendingDues || 0) + (due > 0 ? due : 0);
+  customers[phone].points = (customers[phone].points || 0) + Math.floor(total / 100) - redeemPts;
+  customers[phone].wallet = (customers[phone].wallet || 0) - walletUsed;
+  customers[phone].lastVisit = sale.date;
 
-  const googleReviewLink = 'https://g.page/r/CY9qnXdoSK8XEAI/review';
-  const instagramLink = 'https://www.instagram.com/mahi_beautymakeover?igsh=dzBwcTF0ZDB4d2Ux';
+  localStorage.setItem('nitusharma_sales', JSON.stringify(sales));
+  localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
+  updateHighestLowestStaffRevenue();
 
-  const message = `✨ *MAKEOVER BY NITU SHARMA* ✨\n` +
-    `------------------------------------\n` +
-    `Hello *${sale.customerName}*, thank you for choosing Makeover by Nitu Sharma!\n\n` +
-    `🧾 *Invoice No:* #${sale.id}\n` +
-    `📅 *Date:* ${sale.date}\n\n` +
-    `💄 *Services Rendered:*\n${itemsText}` +
-    `------------------------------------\n` +
-    `Subtotal: ₹${sub}\n` +
-    `Discount: -₹${disc}\n` +
-    `Points Earned: +${sale.earnedPoints || 0} pts\n` +
-    `*TOTAL BILL:* ₹${sale.total.toFixed(2)}\n` +
-    `*Amount Paid:* ₹${paid}\n` +
-    `*Due Balance:* ₹${due}\n` +
-    `------------------------------------\n\n` +
-    `⭐ *Please Review Our 5 Star Service!*\n` +
-    `We would love to hear about your experience. Please take a moment to leave us a *5-star Google Review*:\n` +
-    `${googleReviewLink}\n\n` +
-    `📸 *Follow Us on Instagram*\n` +
-    `${instagramLink}\n\n` +
-    `Thank you for your love and support! 💕\n` +
-    `We look forward to seeing you again! 💖`;
-
-  window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
+  return sale;
 }
 
 function resetBillForm() {
   cart = [];
   manualPaidEdited = false;
-  renderCart();
-  document.getElementById('paidAmount').value = '';
-  document.getElementById('redeemPointsInput').value = '0';
-  document.getElementById('useWalletInput').value = '0';
-  calculateTotal();
+  editingSaleId = null;
   document.getElementById('custPhone').value = '';
   document.getElementById('custName').value = '';
   document.getElementById('custEmail').value = '';
   document.getElementById('custAddress').value = '';
-  document.getElementById('posLoyaltyBar').style.display = 'none';
+  document.getElementById('taxRate').value = 0;
+  document.getElementById('discount').value = 0;
+  document.getElementById('redeemPointsInput').value = 0;
+  document.getElementById('useWalletInput').value = 0;
+  document.getElementById('paidAmount').value = '';
+  document.getElementById('billStaffSelect').selectedIndex = 0;
+  renderCart();
+  autoFillCustomer();
 }
 
-/* PROMOTIONS & OFFERS LOGIC */
-function previewPromoBanner() {
-  const url = document.getElementById('promoBannerUrl').value.trim();
-  const previewBox = document.getElementById('bannerPreviewContainer');
-  const img = document.getElementById('bannerImgPreview');
+function editSale(saleId) {
+  const sale = sales.find(s => s.id === saleId);
+  if (!sale) return alert('Bill not found!');
 
-  if (url) {
-    img.src = url;
-    previewBox.style.display = 'block';
-  } else {
-    previewBox.style.display = 'none';
+  editingSaleId = sale.id;
+  document.getElementById('custPhone').value = sale.customerPhone || '';
+  document.getElementById('custName').value = sale.customerName || '';
+  
+  if (customers[sale.customerPhone]) {
+    document.getElementById('custEmail').value = customers[sale.customerPhone].email || '';
+    document.getElementById('custAddress').value = customers[sale.customerPhone].address || '';
+  }
+
+  const staffSel = document.getElementById('billStaffSelect');
+  if (staffSel) staffSel.value = sale.staffName || '';
+
+  cart = sale.itemsDetail ? [...sale.itemsDetail] : [];
+  document.getElementById('taxRate').value = sale.tax || 0;
+  document.getElementById('discount').value = sale.discount || 0;
+  document.getElementById('redeemPointsInput').value = sale.redeemPts || 0;
+  document.getElementById('useWalletInput').value = sale.walletUsed || 0;
+  document.getElementById('paidAmount').value = sale.paid || 0;
+  manualPaidEdited = true;
+
+  renderCart();
+  autoFillCustomer();
+
+  // Switch to Billing Tab
+  const billingNav = document.querySelector(".nav-link[onclick*='billing-tab']");
+  if (billingNav) switchTab('billing-tab', billingNav);
+}
+
+function deleteSale(saleId) {
+  if (currentUser.role !== 'admin') {
+    return alert('Access Restricted: Only Admin can delete bills.');
+  }
+
+  if (confirm(`Are you sure you want to delete bill #${saleId}?`)) {
+    sales = sales.filter(s => s.id !== saleId);
+    localStorage.setItem('nitusharma_sales', JSON.stringify(sales));
+    renderSales();
+    updateHighestLowestStaffRevenue();
+    alert('Bill deleted successfully!');
   }
 }
 
-function handleBannerFileUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+/* RENDER DIRECTORY & HISTORY TABS */
+function renderCustomers() {
+  const tbody = document.getElementById('customerTableBody');
+  const query = (document.getElementById('searchCust')?.value || '').toLowerCase();
+  if (!tbody) return;
 
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const dataUrl = e.target.result;
-    document.getElementById('promoBannerUrl').value = dataUrl;
-    document.getElementById('bannerImgPreview').src = dataUrl;
-    document.getElementById('bannerPreviewContainer').style.display = 'block';
-  };
-  reader.readAsDataURL(file);
-}
-
-function renderPromoCustomerTable() {
-  const query = document.getElementById('searchPromoCust').value.toLowerCase();
-  const tbody = document.getElementById('promoCustomerTableBody');
   tbody.innerHTML = '';
+  const list = Object.values(customers).filter(c => 
+    (c.name || '').toLowerCase().includes(query) || (c.phone || '').includes(query)
+  );
 
-  const custValues = Object.values(customers);
-
-  if (custValues.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8;">No clients found in directory.</td></tr>`;
-    updateSelectedPromoCount();
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted);">No client records found.</td></tr>';
     return;
   }
 
-  custValues.forEach(c => {
-    if (c.name.toLowerCase().includes(query) || c.phone.includes(query)) {
-      tbody.innerHTML += `
-        <tr>
-          <td style="text-align: center;">
-            <input type="checkbox" class="promo-cust-checkbox" value="${c.phone}" onchange="updateSelectedPromoCount()">
-          </td>
-          <td><strong>${c.name}</strong></td>
-          <td>${c.phone}</td>
-          <td>₹${(c.totalSpent || 0).toFixed(2)}</td>
-          <td>${c.visits || 0}</td>
-          <td><strong style="color:#f59e0b;">${c.points || 0}</strong></td>
-          <td>${c.lastVisit || '-'}</td>
-        </tr>
-      `;
-    }
-  });
-
-  updateSelectedPromoCount();
-}
-
-function toggleSelectAllPromo(masterCheckbox) {
-  const checkboxes = document.querySelectorAll('.promo-cust-checkbox');
-  checkboxes.forEach(cb => { cb.checked = masterCheckbox.checked; });
-  updateSelectedPromoCount();
-}
-
-function updateSelectedPromoCount() {
-  const checked = document.querySelectorAll('.promo-cust-checkbox:checked');
-  document.getElementById('selectedCountDisplay').innerText = checked.length;
-  
-  const allCheckboxes = document.querySelectorAll('.promo-cust-checkbox');
-  const master = document.getElementById('selectAllPromo');
-  if (master && allCheckboxes.length > 0) {
-    master.checked = checked.length === allCheckboxes.length;
-  }
-}
-
-function sendPromoWhatsApp() {
-  const title = document.getElementById('promoTitle').value.trim();
-  const message = document.getElementById('promoMessage').value.trim();
-  const bannerUrl = document.getElementById('promoBannerUrl').value.trim();
-
-  if (!title || !message) {
-    return alert('Please enter both an Offer Title and Message content.');
-  }
-
-  const selectedCheckboxes = document.querySelectorAll('.promo-cust-checkbox:checked');
-  if (selectedCheckboxes.length === 0) {
-    return alert('Please select at least one customer from the list.');
-  }
-
-  let fullMsg = `🎉 *SPECIAL OFFER: ${title.toUpperCase()}* 🎉\n` +
-    `✨ *MAKEOVER BY NITU SHARMA* ✨\n` +
-    `------------------------------------\n\n` +
-    `${message}\n\n`;
-
-  if (bannerUrl) {
-    fullMsg += `🖼️ *View Offer Banner:* ${bannerUrl}\n\n`;
-  }
-
-  fullMsg += `------------------------------------\n` +
-    `Book your session today! 💖`;
-
-  // Process first selected customer directly via wa.me link
-  const firstPhone = selectedCheckboxes[0].value;
-  let cleanPhone = firstPhone.replace(/\D/g, '');
-  if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
-
-  if (selectedCheckboxes.length > 1) {
-    alert(`Broadcasting to ${selectedCheckboxes.length} clients.\nOpening WhatsApp for ${customers[firstPhone]?.name || firstPhone}.`);
-  }
-
-  window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(fullMsg)}`, '_blank');
-}
-
-/* LOYALTY & WALLET LOGIC */
-function renderLoyaltyTab() {
-  let totalPts = 0;
-  let totalWallet = 0;
-  let referralCount = 0;
-  const tbody = document.getElementById('loyaltyTableBody');
-  tbody.innerHTML = '';
-
-  const custKeys = Object.keys(customers);
-  custKeys.forEach(phone => {
-    const c = customers[phone];
-    const pts = c.points || 0;
-    const wallet = c.wallet || 0;
-    totalPts += pts;
-    totalWallet += wallet;
-
-    if (c.referralCompleted) referralCount++;
-
-    const tierBadge = pts >= 500 
-      ? `<span class="badge badge-gold"><i class="fa-solid fa-crown"></i> Gold VIP</span>` 
-      : `<span class="badge badge-silver">Silver Member</span>`;
-
+  list.forEach(c => {
     tbody.innerHTML += `
       <tr>
-        <td><strong>${c.name}</strong></td>
-        <td>${c.phone}</td>
-        <td>${tierBadge}</td>
-        <td><strong style="color:#f59e0b;">${pts}</strong> pts</td>
-        <td><strong style="color:#10b981;">₹${wallet.toFixed(2)}</strong></td>
+        <td><strong>${c.phone}</strong></td>
+        <td>${c.name}</td>
+        <td>${c.email || 'N/A'}</td>
+        <td>${c.visits || 0}</td>
+        <td>₹${(c.totalSpent || 0).toFixed(2)}</td>
+        <td style="color:${c.pendingDues > 0 ? '#ef4444' : 'inherit'};">₹${(c.pendingDues || 0).toFixed(2)}</td>
+        <td><span class="badge badge-gold">${c.points || 0} pts</span></td>
+        <td>₹${(c.wallet || 0).toFixed(2)}</td>
+        <td>${c.lastVisit || 'N/A'}</td>
         <td>
-          <button class="btn btn-primary btn-sm" onclick="promptAddPoints('${c.phone}')"><i class="fa-solid fa-plus"></i> Pts</button>
-          <button class="btn btn-success btn-sm" onclick="promptTopupWallet('${c.phone}')"><i class="fa-solid fa-wallet"></i> TopUp</button>
+          <button class="btn btn-whatsapp btn-sm" onclick="window.open('https://wa.me/91${c.phone}')"><i class="fa-brands fa-whatsapp"></i></button>
         </td>
       </tr>
     `;
-  });
-
-  document.getElementById('loyaltyTotalPoints').innerText = totalPts;
-  document.getElementById('loyaltyWalletTotal').innerText = '₹' + totalWallet.toFixed(2);
-  document.getElementById('loyaltyReferralCount').innerText = referralCount;
-}
-
-function promptAddPoints(phone) {
-  const pts = parseInt(prompt('Enter Bonus Loyalty Points to add:'));
-  if (pts && pts > 0 && customers[phone]) {
-    customers[phone].points = (customers[phone].points || 0) + pts;
-    localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
-    renderLoyaltyTab();
-  }
-}
-
-function promptTopupWallet(phone) {
-  const amt = parseFloat(prompt('Enter Wallet Top-up Amount (₹):'));
-  if (amt && amt > 0 && customers[phone]) {
-    customers[phone].wallet = (customers[phone].wallet || 0) + amt;
-    localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
-    renderLoyaltyTab();
-  }
-}
-
-function topupWallet() {
-  const phone = document.getElementById('walletTopupPhone').value.trim();
-  const amt = parseFloat(document.getElementById('walletTopupAmount').value);
-
-  if (!phone || isNaN(amt) || amt <= 0) return alert('Enter valid client phone and amount.');
-
-  if (!customers[phone]) {
-    const name = prompt('Client not found. Enter Client Name to create account:') || 'Client';
-    customers[phone] = { phone, name, email: email, address: address, visits: 0, totalSpent: 0, pendingDues: 0, points: 0, wallet: 0, lastVisit: 'New', referredBy: null, referralCompleted: false };
-  }
-
-  customers[phone].wallet = (customers[phone].wallet || 0) + amt;
-  localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
-
-  document.getElementById('walletTopupPhone').value = '';
-  document.getElementById('walletTopupAmount').value = '';
-  alert(`Successfully added ₹${amt.toFixed(2)} to ${customers[phone].name}'s wallet!`);
-  renderLoyaltyTab();
-}
-
-function applyReferralBonus() {
-  const refPhone = document.getElementById('refExistingPhone').value.trim();
-  const newPhone = document.getElementById('refNewPhone').value.trim();
-
-  if (!refPhone || !newPhone) return alert('Both referrer and new client phones are required.');
-  if (refPhone === newPhone) return alert('Referrer and new client cannot be the same.');
-  if (!customers[refPhone]) return alert('Referrer phone does not exist in Client Directory.');
-
-  if (!customers[newPhone]) {
-    const name = prompt('Enter New Client Name:') || 'New Referred Client';
-    customers[newPhone] = { phone: newPhone, name, email: email, address: address, visits: 0, totalSpent: 0, pendingDues: 0, points: 0, wallet: 0, lastVisit: 'New', referredBy: refPhone, referralCompleted: false };
-  } else {
-    customers[newPhone].referredBy = refPhone;
-  }
-
-  localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
-
-  document.getElementById('refExistingPhone').value = '';
-  document.getElementById('refNewPhone').value = '';
-  alert(`Referral linked successfully!\n100 bonus points will be automatically unlocked for both ${customers[refPhone].name} and ${customers[newPhone].name} after ${customers[newPhone].name}'s first billed service.`);
-  renderLoyaltyTab();
-}
-
-function addCustomerManually() {
-  const name = document.getElementById('newCustName').value.trim();
-  const phone = document.getElementById('newCustPhone').value.trim();
-  const email = document.getElementById('newCustEmail').value.trim();
-  const refPhone = document.getElementById('newCustReferrer').value.trim();
-
-  if (!name || !phone) return alert('Name and Phone are required.');
-
-  if (!customers[phone]) {
-    customers[phone] = { phone, name, email, visits: 0, totalSpent: 0, pendingDues: 0, points: 0, wallet: 0, lastVisit: 'Never', referredBy: refPhone || null, referralCompleted: false };
-  } else {
-    customers[phone].name = name;
-    customers[phone].email = email;
-    if (refPhone) customers[phone].referredBy = refPhone;
-  }
-
-  localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
-  renderCustomers();
-
-  document.getElementById('newCustName').value = '';
-  document.getElementById('newCustPhone').value = '';
-  document.getElementById('newCustEmail').value = '';
-  document.getElementById('newCustReferrer').value = '';
-
-  if (refPhone) {
-    alert('Client added! Referral bonus is linked and will be awarded automatically upon their first completed bill.');
-  } else {
-    alert('Client added successfully!');
-  }
-}
-
-function deleteCustomer(phone) {
-  if (!customers[phone]) return alert('Customer not found.');
-
-  const customer = customers[phone];
-  const hasBills = sales.some(s => s.customerPhone === phone);
-  const warning = hasBills
-    ? `Delete ${customer.name} (${phone}) from the customer database?\n\nTheir existing bills will NOT be deleted. Sales history will remain intact.\n\nThis will remove their profile, points and wallet balance.`
-    : `Delete ${customer.name} (${phone}) from the customer database?`;
-
-  if (!confirm(warning)) return;
-
-  delete customers[phone];
-  localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
-  renderCustomers();
-  renderPromoCustomerTable();
-  renderLoyaltyTab();
-  renderCRM();
-  alert('Customer deleted successfully.');
-}
-
-function renderCustomers() {
-  const query = document.getElementById('searchCust').value.toLowerCase();
-  const tbody = document.getElementById('customerTableBody');
-  tbody.innerHTML = '';
-
-  Object.values(customers).forEach(c => {
-    if (c.name.toLowerCase().includes(query) || c.phone.includes(query)) {
-      const duesVal = c.pendingDues || 0;
-      const duesBadge = duesVal > 0
-        ? `<span class="badge badge-due">₹${duesVal.toFixed(2)}</span>`
-        : `<span class="badge badge-paid">Clear</span>`;
-
-      tbody.innerHTML += `
-        <tr>
-          <td>${c.phone}</td>
-          <td><strong>${c.name}</strong></td>
-          <td>${c.email || '-'}</td>
-          <td>${c.visits || 0}</td>
-          <td>₹${(c.totalSpent || 0).toFixed(2)}</td>
-          <td>${duesBadge}</td>
-          <td><strong style="color:#f59e0b;">${c.points || 0}</strong></td>
-          <td><strong style="color:#10b981;">₹${(c.wallet || 0).toFixed(2)}</strong></td>
-          <td>${c.lastVisit || '-'}</td>
-          <td style="white-space:nowrap;">
-            <button class="btn btn-danger btn-sm" onclick="deleteCustomer('${String(c.phone).replace(/'/g, "\\'")}')" title="Delete Customer">
-              <i class="fa-solid fa-trash"></i> Delete
-            </button>
-          </td>
-        </tr>
-      `;
-    }
   });
 }
 
 function renderSales() {
   const tbody = document.getElementById('salesTableBody');
+  if (!tbody) return;
   tbody.innerHTML = '';
 
-  sales.slice().reverse().forEach(s => {
-    const paid = s.paid !== undefined ? s.paid : s.total;
-    const due = s.due !== undefined ? s.due : 0;
-
-    tbody.innerHTML += `
-      <tr>
-        <td>#${s.id}</td>
-        <td>${s.date}</td>
-        <td><strong>${s.customerName}</strong></td>
-        <td>${s.customerPhone}</td>
-        <td>${s.itemsSummary}</td>
-        <td>₹${s.total.toFixed(2)}</td>
-        <td style="color:#10b981;">₹${paid.toFixed(2)}</td>
-        <td style="color:${due > 0 ? '#ef4444' : '#10b981'}; font-weight:bold;">₹${due.toFixed(2)}</td>
-        <td style="white-space:nowrap;">
-          <button class="btn btn-primary btn-sm" onclick='printSaleRecord(${JSON.stringify(s)})' title="Print Bill"><i class="fa-solid fa-print"></i></button>
-          <button class="btn btn-warning btn-sm" onclick='startEditBill(${JSON.stringify(s.id)})' title="Edit Bill"><i class="fa-solid fa-pen-to-square"></i></button>
-          <button class="btn btn-whatsapp btn-sm" onclick='sendWhatsAppSaleRecord(${JSON.stringify(s)})' title="Send WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>
-          <button class="btn btn-danger btn-sm" onclick='deleteBill(${JSON.stringify(s.id)})' title="Delete Bill"><i class="fa-solid fa-trash"></i></button>
-        </td>
-      </tr>
-    `;
-  });
-}
-
-// Analytics Logic
-function setDateFilter(filterType, element) {
-  currentFilter = filterType;
-  document.querySelectorAll('.filter-group .filter-btn').forEach(btn => btn.classList.remove('active'));
-  if (element) element.classList.add('active');
-
-  document.getElementById('filterStartDate').value = '';
-  document.getElementById('filterEndDate').value = '';
-  customStart = null;
-  customEnd = null;
-
-  renderCRM();
-}
-
-function applyCustomDateRange() {
-  const start = document.getElementById('filterStartDate').value;
-  const end = document.getElementById('filterEndDate').value;
-
-  if (start && end) {
-    currentFilter = 'custom';
-    customStart = start;
-    customEnd = end;
-    document.querySelectorAll('.filter-group .filter-btn').forEach(btn => btn.classList.remove('active'));
-    renderCRM();
-  }
-}
-
-function getFilteredSales() {
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-
-  return sales.filter(s => {
-    const sDate = s.date;
-    if (currentFilter === 'today') {
-      return sDate === todayStr;
-    } else if (currentFilter === 'this_week') {
-      const saleD = new Date(sDate);
-      const diffDays = (today - saleD) / (1000 * 3600 * 24);
-      return diffDays >= 0 && diffDays <= 7;
-    } else if (currentFilter === 'this_month') {
-      return sDate.substring(0, 7) === todayStr.substring(0, 7);
-    } else if (currentFilter === 'custom' && customStart && customEnd) {
-      return sDate >= customStart && sDate <= customEnd;
-    }
-    return true;
-  });
-}
-
-function renderCRM() {
-  const filteredSales = getFilteredSales();
-
-  let totalRev = 0;
-  let totalDues = 0;
-  const customerMap = {};
-  const itemCounts = {};
-  const dateRevMap = {};
-
-  filteredSales.forEach(s => {
-    totalRev += s.total;
-    totalDues += (s.due || 0);
-
-    if (!customerMap[s.customerPhone]) {
-      customerMap[s.customerPhone] = { name: s.customerName, spend: 0, orders: 0 };
-    }
-    customerMap[s.customerPhone].spend += s.total;
-    customerMap[s.customerPhone].orders += 1;
-
-    dateRevMap[s.date] = (dateRevMap[s.date] || 0) + s.total;
-
-    if (s.itemsDetail && s.itemsDetail.length > 0) {
-      s.itemsDetail.forEach(item => {
-        itemCounts[item.name] = (itemCounts[item.name] || 0) + 1;
-      });
-    } else if (s.itemsSummary) {
-      s.itemsSummary.split(', ').forEach(iname => {
-        itemCounts[iname] = (itemCounts[iname] || 0) + 1;
-      });
-    }
-  });
-
-  const totalOrders = filteredSales.length;
-  const avgOrder = totalOrders > 0 ? totalRev / totalOrders : 0;
-  const activeCustCount = Object.keys(customerMap).length;
-
-  document.getElementById('crmTotalRev').innerText = '₹' + totalRev.toFixed(2);
-  document.getElementById('crmTotalOrders').innerText = totalOrders;
-  document.getElementById('crmAvgOrder').innerText = '₹' + avgOrder.toFixed(2);
-  document.getElementById('crmTotalDues').innerText = '₹' + totalDues.toFixed(2);
-  document.getElementById('crmTotalCust').innerText = activeCustCount;
-
-  const periodLabels = {
-    today: "Today's transactions",
-    this_week: "Past 7 days performance",
-    this_month: "Current month records",
-    all: "All recorded transactions",
-    custom: `From ${customStart} to ${customEnd}`
-  };
-  document.getElementById('crmPeriodLabel').innerText = periodLabels[currentFilter] || "Filtered timeframe";
-  document.getElementById('chartRangeSubtitle').innerText = periodLabels[currentFilter] || "";
-
-  renderSalesTrendChart(dateRevMap);
-  renderProductsChart(itemCounts);
-  renderCRMPipeline(customerMap);
-}
-
-function renderSalesTrendChart(dateRevMap) {
-  const ctx = document.getElementById('salesTrendChart').getContext('2d');
-  const labels = Object.keys(dateRevMap).sort();
-  const data = labels.map(d => dateRevMap[d]);
-
-  if (salesChartInstance) salesChartInstance.destroy();
-
-  salesChartInstance = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: labels.length > 0 ? labels : ['No Data'],
-      datasets: [{
-        label: 'Revenue (₹)',
-        data: data.length > 0 ? data : [0],
-        borderColor: '#e11d48',
-        backgroundColor: 'rgba(225, 29, 72, 0.1)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 4,
-        pointBackgroundColor: '#e11d48'
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-        x: { grid: { display: false } }
-      }
-    }
-  });
-}
-
-function renderProductsChart(itemCounts) {
-  const ctx = document.getElementById('productsPieChart').getContext('2d');
-  const labels = Object.keys(itemCounts);
-  const data = Object.values(itemCounts);
-
-  if (productsChartInstance) productsChartInstance.destroy();
-
-  const chartColors = ['#e11d48', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899'];
-
-  productsChartInstance = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: labels.length > 0 ? labels : ['No Services Rendered'],
-      datasets: [{
-        data: data.length > 0 ? data : [1],
-        backgroundColor: labels.length > 0 ? chartColors.slice(0, labels.length) : ['#e2e8f0']
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
-      }
-    }
-  });
-}
-
-function renderCRMPipeline(periodCustomerMap) {
-  const tbody = document.getElementById('crmCustomerPipelineBody');
-  tbody.innerHTML = '';
-
-  const allPhones = Object.keys(customers);
-
-  if (allPhones.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#94a3b8;">No client directory data found.</td></tr>`;
+  if (sales.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--text-muted);">No sales records available.</td></tr>';
     return;
   }
 
-  allPhones.forEach(phone => {
-    const cust = customers[phone];
-    const periodData = periodCustomerMap[phone] || { spend: 0, orders: 0 };
-    const khataDue = cust.pendingDues || 0;
-
-    let segmentBadge = `<span class="badge badge-regular">Regular</span>`;
-    if (periodData.spend >= 5000 || cust.totalSpent >= 15000) {
-      segmentBadge = `<span class="badge badge-vip">⭐ VIP</span>`;
-    } else if (periodData.orders === 0) {
-      segmentBadge = `<span class="badge badge-lead">Inactive</span>`;
-    }
-
-    const dueBadge = khataDue > 0
-      ? `<span class="badge badge-due">₹${khataDue.toFixed(2)}</span>`
-      : `<span class="badge badge-paid">Clear</span>`;
-
-    let waMsg = `Hello ${cust.name}! Greetings from Makeover by Nitu Sharma ✨. We look forward to hosting you for your next beauty session!`;
-    if (khataDue > 0) {
-      waMsg = `Hello ${cust.name}, this is a gentle reminder regarding your pending balance of ₹${khataDue.toFixed(2)} at Makeover by Nitu Sharma. Let us know if you'd like to settle it today! ✨`;
-    }
-
-    let cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
-
+  [...sales].reverse().forEach(s => {
+    const itemNames = s.itemsDetail ? s.itemsDetail.map(i => i.name).join(', ') : 'N/A';
     tbody.innerHTML += `
       <tr>
-        <td><strong>${cust.name}</strong></td>
-        <td>${cust.phone}</td>
-        <td>${segmentBadge}</td>
-        <td>₹${periodData.spend.toFixed(2)}</td>
-        <td>${periodData.orders}</td>
-        <td>${dueBadge}</td>
+        <td><strong>#${s.id}</strong></td>
+        <td>${s.date}</td>
+        <td>${s.customerName}</td>
+        <td>${s.customerPhone}</td>
+        <td>${s.staffName || 'N/A'}</td>
+        <td style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${itemNames}</td>
+        <td>₹${s.total.toFixed(2)}</td>
+        <td>₹${s.paid.toFixed(2)}</td>
+        <td style="color:${s.due > 0 ? '#ef4444' : 'inherit'};">₹${s.due.toFixed(2)}</td>
         <td>
-          <a class="btn btn-whatsapp btn-sm" href="https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMsg)}" target="_blank">
-            <i class="fa-brands fa-whatsapp"></i> Contact
-          </a>
+          <div style="display:flex; gap:4px;">
+            <button class="btn btn-primary btn-sm" title="Edit Bill" onclick="editSale('${s.id}')"><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-success btn-sm" title="Print Bill" onclick="printBillById('${s.id}')"><i class="fa-solid fa-print"></i></button>
+            <button class="btn btn-danger btn-sm" title="Delete Bill" onclick="deleteSale('${s.id}')"><i class="fa-solid fa-trash"></i></button>
+            <button class="btn btn-whatsapp btn-sm" title="WhatsApp" onclick="window.open('https://wa.me/91${s.customerPhone}')"><i class="fa-brands fa-whatsapp"></i></button>
+          </div>
         </td>
       </tr>
     `;
   });
 }
 
-// CSV Export
-function exportServicesCSV() {
-  let csv = 'Service Name,Price (INR)\n';
-  services.forEach(s => { csv += `"${s.name.replace(/"/g, '""')}",${s.price}\n`; });
-  downloadCSV(csv, 'nitusharma_service_menu.csv');
+/* STAFF MANAGEMENT FUNCTIONS */
+function saveStaffProfile() {
+  const name = document.getElementById('staffName').value.trim();
+  const mobile = document.getElementById('staffMobile').value.trim();
+  const email = document.getElementById('staffEmail').value.trim();
+  const doj = document.getElementById('staffDoj').value;
+  const salary = parseFloat(document.getElementById('staffSalary').value) || 0;
+  const govtId = document.getElementById('staffGovtId').value.trim();
+
+  const commService = parseFloat(document.getElementById('commService').value) || 0;
+  const commRevenue = parseFloat(document.getElementById('commRevenue').value) || 0;
+  const commProduct = parseFloat(document.getElementById('commProduct').value) || 0;
+
+  if (!name) return alert('Staff Name is required.');
+
+  const idx = staffMembers.findIndex(s => s.name.toLowerCase() === name.toLowerCase());
+  const staffData = { name, mobile, email, doj, salary, govtId, commService, commRevenue, commProduct };
+
+  if (idx > -1) {
+    staffMembers[idx] = staffData;
+  } else {
+    staffMembers.push(staffData);
+  }
+
+  localStorage.setItem('nitusharma_staff', JSON.stringify(staffMembers));
+  
+  // Clear Inputs
+  document.getElementById('staffName').value = '';
+  document.getElementById('staffMobile').value = '';
+  document.getElementById('staffEmail').value = '';
+  document.getElementById('staffDoj').value = '';
+  document.getElementById('staffSalary').value = '';
+  document.getElementById('staffGovtId').value = '';
+
+  renderStaffTable();
+  populateStaffDropdown();
+  renderStaffCommissionSummary();
+  updateHighestLowestStaffRevenue();
+  alert('Staff member saved successfully!');
+}
+
+function renderStaffTable() {
+  const tbody = document.getElementById('staffTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  if (staffMembers.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:var(--text-muted);">No staff members added.</td></tr>';
+    return;
+  }
+
+  staffMembers.forEach((s, idx) => {
+    const totalRev = sales.filter(sa => sa.staffName === s.name).reduce((sum, sa) => sum + sa.total, 0);
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${s.name}</strong></td>
+        <td>${s.mobile || 'N/A'}</td>
+        <td>${s.email || 'N/A'}</td>
+        <td>${s.govtId || 'N/A'}</td>
+        <td>${s.doj || 'N/A'}</td>
+        <td>₹${s.salary.toFixed(2)}</td>
+        <td>${s.commService}%</td>
+        <td>${s.commRevenue}%</td>
+        <td>${s.commProduct}%</td>
+        <td>₹${totalRev.toFixed(2)}</td>
+        <td>
+          <button class="btn btn-danger btn-sm" onclick="deleteStaff(${idx})"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function deleteStaff(index) {
+  if (confirm('Delete this staff profile?')) {
+    staffMembers.splice(index, 1);
+    localStorage.setItem('nitusharma_staff', JSON.stringify(staffMembers));
+    renderStaffTable();
+    populateStaffDropdown();
+    renderStaffCommissionSummary();
+    updateHighestLowestStaffRevenue();
+  }
+}
+
+function populateStaffDropdown() {
+  const billSelect = document.getElementById('billStaffSelect');
+  const filterSelect = document.getElementById('staffSelectFilter');
+
+  if (billSelect) {
+    billSelect.innerHTML = '<option value="">-- Choose Staff --</option>';
+    staffMembers.forEach(s => {
+      billSelect.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+    });
+  }
+
+  if (filterSelect) {
+    filterSelect.innerHTML = '<option value="">-- All Staff Members --</option>';
+    staffMembers.forEach(s => {
+      filterSelect.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+    });
+  }
+}
+
+function renderStaffCommissionSummary() {
+  const filterSelect = document.getElementById('staffSelectFilter');
+  const target = document.getElementById('staffCommissionReport');
+  if (!target) return;
+
+  const selectedName = filterSelect ? filterSelect.value : '';
+
+  if (!selectedName) {
+    target.innerHTML = '<em>Select a staff member from above to view calculated commissions & revenue breakdown.</em>';
+    return;
+  }
+
+  const staff = staffMembers.find(s => s.name === selectedName);
+  if (!staff) return;
+
+  const staffSales = sales.filter(s => s.staffName === staff.name);
+  const totalRev = staffSales.reduce((sum, s) => sum + s.total, 0);
+  const commEarned = (totalRev * (staff.commRevenue || 0)) / 100;
+
+  target.innerHTML = `
+    <p><strong>Staff Name:</strong> ${staff.name}</p>
+    <p><strong>Mobile:</strong> ${staff.mobile || 'N/A'} | <strong>Email:</strong> ${staff.email || 'N/A'}</p>
+    <p><strong>Base Monthly Salary:</strong> ₹${staff.salary.toFixed(2)}</p>
+    <p><strong>Total Invoices Served:</strong> ${staffSales.length}</p>
+    <p><strong>Total Revenue Generated:</strong> ₹${totalRev.toFixed(2)}</p>
+    <p><strong>Calculated Revenue Comm (${staff.commRevenue}%):</strong> ₹${commEarned.toFixed(2)}</p>
+    <hr style="margin: 8px 0; border:0; border-top: 1px solid var(--border-color);">
+    <p style="font-size: 14px; font-weight: bold; color: var(--primary);">Total Payout Est: ₹${(staff.salary + commEarned).toFixed(2)}</p>
+  `;
+}
+
+/* AUXILIARY & SYSTEM FUNCTIONS */
+function updateHighestLowestStaffRevenue() {
+  if (staffMembers.length === 0) return;
+  let stats = staffMembers.map(s => {
+    const total = sales.filter(sa => sa.staffName === s.name).reduce((sum, sa) => sum + sa.total, 0);
+    return { name: s.name, total };
+  }).sort((a,b) => b.total - a.total);
+
+  if (stats.length > 0) {
+    document.getElementById('highestStaffVal').innerText = stats[0].name;
+    document.getElementById('highestStaffSub').innerText = '₹' + stats[0].total.toFixed(2) + ' generated';
+    document.getElementById('lowestStaffVal').innerText = stats[stats.length - 1].name;
+    document.getElementById('lowestStaffSub').innerText = '₹' + stats[stats.length - 1].total.toFixed(2) + ' generated';
+  }
+}
+
+function downloadCSV(csv, filename) {
+  const link = document.createElement('a');
+  link.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  link.download = filename;
+  link.click();
 }
 
 function exportCustomersCSV() {
-  let csv = 'Phone,Name,Email,Visits,Total Spent (INR),Pending Dues (INR),Points,Wallet Balance (INR),Last Visit\n';
+  let csv = 'Phone,Name,Email,Visits,Total Spent,Pending Dues,Points,Wallet,Last Visit\n';
   Object.values(customers).forEach(c => {
-    csv += `"${c.phone}","${c.name.replace(/"/g, '""')}","${c.email || ''}",${c.visits},${c.totalSpent},${c.pendingDues || 0},${c.points || 0},${c.wallet || 0},"${c.lastVisit}"\n`;
+    csv += `"${c.phone}","${c.name}","${c.email||''}","${c.visits||0}",${c.totalSpent||0},${c.pendingDues||0},${c.points||0},${c.wallet||0},"${c.lastVisit||''}"\n`;
   });
-  downloadCSV(csv, 'nitusharma_clients.csv');
+  downloadCSV(csv, 'Client_Directory.csv');
 }
 
 function exportSalesCSV() {
-  let csv = 'Invoice ID,Date,Client Name,Phone,Services Summary,Subtotal,Tax,Discount,Total,Paid,Due\n';
+  let csv = 'Bill ID,Date,Client Name,Phone,Staff,Total,Paid,Due\n';
   sales.forEach(s => {
-    csv += `"${s.id}","${s.date}","${s.customerName}","${s.customerPhone}","${(s.itemsSummary || '').replace(/"/g, '""')}",${s.subtotal || s.total},${s.taxAmount || 0},${s.discount || 0},${s.total},${s.paid || s.total},${s.due || 0}\n`;
+    csv += `"${s.id}","${s.date}","${s.customerName}","${s.customerPhone}","${s.staffName||''}",${s.total},${s.paid},${s.due}\n`;
   });
-  downloadCSV(csv, 'nitusharma_sales.csv');
+  downloadCSV(csv, 'Sales_History.csv');
 }
-
-function exportFullAnalyticsReport() {
-  const filteredSales = getFilteredSales();
-  let csv = `MAKEOVER BY NITU SHARMA - CRM & BUSINESS INTELLIGENCE REPORT\n`;
-  csv += `Filter Period: ${currentFilter.toUpperCase()}\n`;
-  csv += `Generated On: ${new Date().toLocaleString()}\n\n`;
-
-  csv += `SUMMARY METRICS\n`;
-  csv += `Period Revenue,₹${document.getElementById('crmTotalRev').innerText}\n`;
-  csv += `Period Appointments,${document.getElementById('crmTotalOrders').innerText}\n`;
-  csv += `Avg Ticket Value,₹${document.getElementById('crmAvgOrder').innerText}\n`;
-  csv += `Period Dues Generated,₹${document.getElementById('crmTotalDues').innerText}\n`;
-  csv += `Active Clients,${document.getElementById('crmTotalCust').innerText}\n\n`;
-
-  csv += `FILTERED TRANSACTIONS LOG\n`;
-  csv += `Invoice ID,Date,Client,Phone,Total,Paid,Due\n`;
-  filteredSales.forEach(s => {
-    csv += `"${s.id}","${s.date}","${s.customerName}","${s.customerPhone}",${s.total},${s.paid || s.total},${s.due || 0}\n`;
-  });
-
-  downloadCSV(csv, `nitusharma_analytics_${currentFilter}.csv`);
-}
-
-function downloadCSV(csvContent, filename) {
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.setAttribute('href', url);
-  link.setAttribute('download', filename);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-// SYSTEM BACKUP & RESTORE LOGIC
-// ---------------- MULTI-DEVICE SUPABASE CLOUD SYNC ----------------
-// Uses one shared row (backup_key = "main") and merges records before every push.
-// Required Supabase columns: backup_key text PRIMARY KEY, data jsonb, updated_at timestamptz.
-const SUPABASE_TABLE = 'nitusharma_pos_backups';
-const CLOUD_SYNC_INTERVAL_MS = 10000;
-const DEVICE_ID = localStorage.getItem('nitusharma_device_id') || (crypto.randomUUID ? crypto.randomUUID() : 'device-'+Date.now()+'-'+Math.random().toString(16).slice(2));
-localStorage.setItem('nitusharma_device_id', DEVICE_ID);
-let cloudSyncTimer = null;
-let cloudBackupTimer = null;
-let cloudSyncBusy = false;
-let cloudDirty = false;
-let lastCloudAppliedAt = localStorage.getItem('nitusharma_last_cloud_applied') || '';
-
-function getSupabaseConfig() {
-  const url = (document.getElementById('supabaseUrl')?.value || localStorage.getItem('nitusharma_supabase_url') || '').trim().replace(/\/$/, '');
-  const key = (document.getElementById('supabaseKey')?.value || localStorage.getItem('nitusharma_supabase_key') || '').trim();
-  return { url, key };
-}
-
-function setHeaderSyncState(text, state='idle') {
-  const pill = document.getElementById('headerSyncPill');
-  const label = document.getElementById('headerSyncText');
-  if (label) label.textContent = text;
-  if (pill) { pill.classList.remove('online','syncing','error'); if (state !== 'idle') pill.classList.add(state); }
-}
-
-function updateSupabaseStatus(text, ok=false) {
-  const el = document.getElementById('supabaseStatus');
-  if (el) { el.innerText = text; el.style.color = ok ? '#16a34a' : 'var(--text-muted)'; }
-}
-
-function updateLastSyncUI(iso) {
-  if (!iso) return;
-  localStorage.setItem('nitusharma_last_cloud_sync', iso);
-  const el = document.getElementById('lastCloudSync');
-  if (el) el.textContent = new Date(iso).toLocaleString();
-}
-
-function supabaseHeaders(key, extra={}) {
-  return Object.assign({'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'}, extra);
-}
-
-function collectSystemBackup() {
-  return {
-    app: 'MAKEOVER BY NITU SHARMA', version: '3.0-multidevice',
-    deviceId: DEVICE_ID, exportedAt: new Date().toISOString(), services, customers, sales
-  };
-}
-
-function saleTimestamp(s) {
-  const t = Date.parse(s?.syncUpdatedAt || s?.updatedAt || s?.fullDate || s?.date || '') || 0;
-  return t;
-}
-
-function customerTimestamp(c) { return Date.parse(c?._syncUpdatedAt || '') || 0; }
-
-function mergeCloudAndLocal(remote={}) {
-  const local = collectSystemBackup();
-  const mergedServices = new Map();
-  [...(remote.services || []), ...(local.services || [])].forEach(item => {
-    if (!item || !item.name) return;
-    mergedServices.set(item.name.trim().toLowerCase(), {name:item.name, price:Number(item.price)||0});
-  });
-
-  const mergedSales = new Map();
-  [...(remote.sales || []), ...(local.sales || [])].forEach(sale => {
-    if (!sale || !sale.id) return;
-    const prev = mergedSales.get(sale.id);
-    if (!prev || saleTimestamp(sale) >= saleTimestamp(prev)) mergedSales.set(sale.id, sale);
-  });
-
-  const mergedCustomers = {...(remote.customers || {})};
-  Object.entries(local.customers || {}).forEach(([phone,c]) => {
-    const prev = mergedCustomers[phone];
-    if (!prev || customerTimestamp(c) >= customerTimestamp(prev)) mergedCustomers[phone] = c;
-  });
-
-  return {
-    app: local.app, version: local.version, deviceId: DEVICE_ID,
-    exportedAt: new Date().toISOString(),
-    services: Array.from(mergedServices.values()), customers: mergedCustomers,
-    sales: Array.from(mergedSales.values()).sort((a,b) => saleTimestamp(a)-saleTimestamp(b))
-  };
-}
-
-function applyCloudData(data, updatedAt='') {
-  if (!data || typeof data !== 'object') return false;
-  const merged = mergeCloudAndLocal(data);
-  services = Array.isArray(merged.services) ? merged.services : services;
-  customers = merged.customers && typeof merged.customers === 'object' ? merged.customers : customers;
-  sales = Array.isArray(merged.sales) ? merged.sales : sales;
-
-  localStorage.setItem('nitusharma_items', JSON.stringify(services));
-  localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
-  localStorage.setItem('nitusharma_sales', JSON.stringify(sales));
-  if (updatedAt) { lastCloudAppliedAt = updatedAt; localStorage.setItem('nitusharma_last_cloud_applied', updatedAt); }
-
-  populateServiceDropdown();
-  try { renderServicesTable(); } catch(e) {}
-  try { renderCustomers(); } catch(e) {}
-  try { renderSales(); } catch(e) {}
-  try { renderCRM(); } catch(e) {}
-  try { renderLoyaltyTab(); } catch(e) {}
-  return true;
-}
-
-async function fetchCloudMain() {
-  const {url,key} = getSupabaseConfig();
-  if (!url || !key) return null;
-  const res = await fetch(`${url}/rest/v1/${SUPABASE_TABLE}?backup_key=eq.main&select=data,updated_at&limit=1`, {headers:supabaseHeaders(key), cache:'no-store'});
-  if (!res.ok) throw new Error(await res.text());
-  const rows = await res.json();
-  return rows[0] || null;
-}
-
-async function pushCloudSnapshot(reason='auto') {
-  const {url,key} = getSupabaseConfig();
-  if (!url || !key || cloudSyncBusy) return false;
-  cloudSyncBusy = true;
-  setHeaderSyncState('Syncing…','syncing');
-  updateSupabaseStatus('Syncing to cloud…');
-  try {
-    const remoteRow = await fetchCloudMain();
-    const merged = mergeCloudAndLocal(remoteRow?.data || {});
-    applyCloudData(merged, remoteRow?.updated_at || '');
-    const now = new Date().toISOString();
-    const payload = {backup_key:'main', data:{...merged, exportedAt:now, lastReason:reason}, updated_at:now};
-    const res = await fetch(`${url}/rest/v1/${SUPABASE_TABLE}?on_conflict=backup_key`, {
-      method:'POST', headers:supabaseHeaders(key, {'Prefer':'resolution=merge-duplicates,return=minimal'}), body:JSON.stringify(payload)
-    });
-    if (!res.ok) throw new Error(await res.text());
-    lastCloudAppliedAt = now;
-    localStorage.setItem('nitusharma_last_cloud_applied', now);
-    cloudDirty = false;
-    updateLastSyncUI(now);
-    updateSupabaseStatus('Synced: '+new Date(now).toLocaleString(), true);
-    setHeaderSyncState('Cloud synced','online');
-    return true;
-  } catch(e) {
-    console.error('Cloud sync failed:', e);
-    updateSupabaseStatus('Sync failed - local data is safe');
-    setHeaderSyncState('Sync error','error');
-    return false;
-  } finally { cloudSyncBusy = false; }
-}
-
-async function pullCloudChanges(force=false) {
-  const {url,key} = getSupabaseConfig();
-  if (!url || !key || cloudSyncBusy) return false;
-  cloudSyncBusy = true;
-  try {
-    const row = await fetchCloudMain();
-    if (!row?.data) return false;
-    const remoteAt = row.updated_at || row.data.exportedAt || '';
-    if (!force && remoteAt && lastCloudAppliedAt && Date.parse(remoteAt) <= Date.parse(lastCloudAppliedAt)) return false;
-    applyCloudData(row.data, remoteAt);
-    updateLastSyncUI(remoteAt || new Date().toISOString());
-    updateSupabaseStatus('Updated from cloud: '+new Date(remoteAt || Date.now()).toLocaleString(), true);
-    setHeaderSyncState('Cloud synced','online');
-    return true;
-  } catch(e) {
-    console.error('Cloud pull failed:', e);
-    setHeaderSyncState('Offline / retrying','error');
-    return false;
-  } finally { cloudSyncBusy = false; }
-}
-
-function scheduleAutoCloudBackup(reason='data-change', immediate=false) {
-  cloudDirty = true;
-  const {url,key} = getSupabaseConfig();
-  if (!url || !key) return;
-  clearTimeout(cloudBackupTimer);
-  cloudBackupTimer = setTimeout(() => pushCloudSnapshot(reason), immediate ? 0 : 1200);
-}
-
-function autoBackupAfterBill(sale) {
-  // Save a local recovery snapshot synchronously, then start cloud sync immediately.
-  try { localStorage.setItem('nitusharma_last_auto_backup', JSON.stringify({createdAt:new Date().toISOString(), saleId:sale.id, data:collectSystemBackup()})); } catch(e) {}
-  scheduleAutoCloudBackup('bill:'+sale.id, true);
-}
-
-async function connectSupabase() {
-  const {url,key}=getSupabaseConfig();
-  if(!url || !key) return alert('Please enter the Supabase Project URL and Publishable/Anon Key.');
-  try {
-    const res=await fetch(`${url}/rest/v1/${SUPABASE_TABLE}?select=backup_key&limit=1`,{headers:supabaseHeaders(key)});
-    if(!res.ok) throw new Error(await res.text());
-    localStorage.setItem('nitusharma_supabase_url',url);
-    localStorage.setItem('nitusharma_supabase_key',key);
-    updateSupabaseStatus('Connected - multi-device sync active',true);
-    setHeaderSyncState('Cloud connected','online');
-    await pullCloudChanges(true);
-    await pushCloudSnapshot('connect');
-    startCloudSyncTimer();
-    alert('Cloud connected. Multi-device sync and automatic bill backup are now active.');
-  } catch(e) {
-    updateSupabaseStatus('Connection failed'); setHeaderSyncState('Sync error','error');
-    alert('Supabase connection failed.\n\nMake sure the table exists and the URL/key are correct.\n\n'+e.message);
-  }
-}
-
-function disconnectSupabase(){
-  localStorage.removeItem('nitusharma_supabase_url'); localStorage.removeItem('nitusharma_supabase_key');
-  if (document.getElementById('supabaseUrl')) document.getElementById('supabaseUrl').value='';
-  if (document.getElementById('supabaseKey')) document.getElementById('supabaseKey').value='';
-  if (cloudSyncTimer) clearInterval(cloudSyncTimer);
-  updateSupabaseStatus('Not connected'); setHeaderSyncState('Local only','idle');
-}
-
-async function backupToSupabase() {
-  const {url,key}=getSupabaseConfig(); if(!url||!key) return alert('Connect to Supabase first.');
-  const ok = await pushCloudSnapshot('manual-sync');
-  if (ok) alert('Cloud sync completed successfully.'); else alert('Cloud sync could not complete. Local data remains saved on this device.');
-}
-
-async function restoreFromSupabase() {
-  const {url,key}=getSupabaseConfig(); if(!url||!key) return alert('Connect to Supabase first.');
-  if(!confirm('Merge the latest Supabase cloud data into this device?\n\nExisting local bills are kept and cloud bills are merged by Bill ID.')) return;
-  const ok = await pullCloudChanges(true);
-  if (ok) alert('Cloud data merged successfully.'); else alert('No cloud data was restored, or the cloud could not be reached.');
-}
-
-function startCloudSyncTimer() {
-  if (cloudSyncTimer) clearInterval(cloudSyncTimer);
-  cloudSyncTimer = setInterval(async () => {
-    if (document.visibilityState !== 'visible') return;
-    if (cloudDirty) await pushCloudSnapshot('periodic-dirty');
-    else await pullCloudChanges(false);
-  }, CLOUD_SYNC_INTERVAL_MS);
-}
-
-function initializeCloudSync() {
-  const deviceEl = document.getElementById('syncDeviceName');
-  if (deviceEl) deviceEl.textContent = DEVICE_ID.slice(0,8);
-  const last = localStorage.getItem('nitusharma_last_cloud_sync');
-  if (last) updateLastSyncUI(last);
-  const {url,key}=getSupabaseConfig();
-  if (url && key) {
-    setHeaderSyncState('Connecting…','syncing');
-    startCloudSyncTimer();
-    setTimeout(() => pullCloudChanges(true), 250);
-  } else setHeaderSyncState('Local only','idle');
-}
-
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pullCloudChanges(false); });
-window.addEventListener('focus', () => pullCloudChanges(false));
 
 function exportFullSystemBackup() {
-  const backupData = {
-    version: '2.6',
-    timestamp: new Date().toISOString(),
-    services: JSON.parse(localStorage.getItem('nitusharma_items')) || [],
-    customers: JSON.parse(localStorage.getItem('nitusharma_customers')) || {},
-    sales: JSON.parse(localStorage.getItem('nitusharma_sales')) || []
-  };
-
-  const jsonString = JSON.stringify(backupData, null, 2);
-  const blob = new Blob([jsonString], { type: 'application/json' });
+  const backup = { services, products, customers, sales, staffMembers, expenses, userAccounts, loginEnabled };
+  const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backup, null, 2));
   const link = document.createElement('a');
-  
-  const dateStr = new Date().toISOString().split('T')[0];
-  link.href = URL.createObjectURL(blob);
-  link.download = `nitusharma_backup_${dateStr}.json`;
-  
-  document.body.appendChild(link);
+  link.href = dataStr;
+  link.download = 'MNS_POS_Backup_' + new Date().toISOString().split('T')[0] + '.json';
   link.click();
-  document.body.removeChild(link);
 }
 
 function importFullSystemBackup() {
-  const fileInput = document.getElementById('importBackupFile');
-  const file = fileInput.files[0];
-
-  if (!file) {
-    return alert('Please select a JSON backup file to import.');
-  }
-
+  const file = document.getElementById('importBackupFile').files[0];
+  if (!file) return alert('Select a JSON file.');
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const data = JSON.parse(e.target.result);
-
-      if (!data.services || !data.customers || !data.sales) {
-        return alert('Invalid backup file structure. Ensure you are uploading a valid software backup.');
-      }
-
-      if (confirm('Restoring backup will overwrite existing Local Storage records. Proceed?')) {
-        localStorage.setItem('nitusharma_items', JSON.stringify(data.services));
-        localStorage.setItem('nitusharma_customers', JSON.stringify(data.customers));
-        localStorage.setItem('nitusharma_sales', JSON.stringify(data.sales));
-
-        services = data.services;
-        customers = data.customers;
-        sales = data.sales;
-
-        populateServiceDropdown();
-        alert('Database restored successfully!');
-        location.reload();
-      }
+      if (data.services) localStorage.setItem('nitusharma_items', JSON.stringify(data.services));
+      if (data.products) localStorage.setItem('nitusharma_products', JSON.stringify(data.products));
+      if (data.customers) localStorage.setItem('nitusharma_customers', JSON.stringify(data.customers));
+      if (data.sales) localStorage.setItem('nitusharma_sales', JSON.stringify(data.sales));
+      if (data.staffMembers) localStorage.setItem('nitusharma_staff', JSON.stringify(data.staffMembers));
+      if (data.expenses) localStorage.setItem('nitusharma_expenses', JSON.stringify(data.expenses));
+      alert('Backup restored successfully! Reloading...');
+      location.reload();
     } catch (err) {
-      alert('Error parsing JSON file. Please verify the file integrity.');
+      alert('Invalid backup file.');
     }
   };
-
   reader.readAsText(file);
+}
+
+/* NAVIGATION TAB SWITCHER */
+function switchTab(tabId, element) {
+  if (currentUser.role === 'cashier' && tabId === 'backup-tab') {
+    return alert('Access Restricted: Cashiers cannot access Data Backup & Restore.');
+  }
+
+  document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  element.classList.add('active');
+
+  if (tabTitles[tabId]) {
+    document.getElementById('pageTitle').innerText = tabTitles[tabId].title;
+    document.getElementById('pageSubtitle').innerText = tabTitles[tabId].sub;
+  }
+
+  if (tabId === 'inventory-tab') renderInventoryTable();
+  if (tabId === 'services-tab') renderServicesTable();
+  if (tabId === 'customers-tab') renderCustomers();
+  if (tabId === 'sales-tab') renderSales();
+  if (tabId === 'crm-tab') renderCRM();
+  if (tabId === 'expenses-tab') renderExpensesTab();
+  if (tabId === 'staff-comm-tab') { renderStaffTable(); renderStaffCommissionSummary(); }
+  if (tabId === 'login-manage-tab') renderLoginAccounts();
+}
+
+function renderServicesTable() {
+  const tbody = document.getElementById('servicesTableBody');
+  const query = (document.getElementById('searchService')?.value || '').toLowerCase();
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  const filtered = services.filter(s => s.name.toLowerCase().includes(query));
+
+  filtered.forEach((s, idx) => {
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${s.name}</strong></td>
+        <td>₹${s.price.toFixed(2)}</td>
+        <td>
+          <button class="btn btn-danger btn-sm" onclick="deleteService(${idx})"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function deleteService(index) {
+  if (confirm('Delete service from catalog?')) {
+    services.splice(index, 1);
+    localStorage.setItem('nitusharma_items', JSON.stringify(services));
+    renderServicesTable();
+    populateServiceDropdown();
+  }
+}
+
+function exportServicesCSV() {
+  let csv = 'Service Name,Price\n';
+  services.forEach(s => { csv += `"${s.name}",${s.price}\n`; });
+  downloadCSV(csv, 'Services_Catalog.csv');
+}
+
+function handleCSVImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const lines = evt.target.result.split('\n');
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      const cols = lines[i].split(',').map(c => c.replace(/"/g, '').trim());
+      if (cols.length >= 2) {
+        const name = cols[0];
+        const price = parseFloat(cols[1]) || 0;
+        if (name && price > 0) {
+          const idx = services.findIndex(s => s.name.toLowerCase() === name.toLowerCase());
+          if (idx > -1) services[idx].price = price;
+          else services.push({ name, price });
+        }
+      }
+    }
+    localStorage.setItem('nitusharma_items', JSON.stringify(services));
+    renderServicesTable();
+    populateServiceDropdown();
+    alert('Services imported successfully!');
+  };
+  reader.readAsText(file);
+}
+
+/* CRM & EXPENSE LOGIC */
+function renderCRM() {
+  const totalRev = sales.reduce((sum, s) => sum + s.total, 0);
+  const totalExp = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalDues = sales.reduce((sum, s) => sum + s.due, 0);
+
+  document.getElementById('crmTotalRev').innerText = '₹' + totalRev.toFixed(2);
+  document.getElementById('crmTotalExp').innerText = '₹' + totalExp.toFixed(2);
+  document.getElementById('crmNetPnL').innerText = '₹' + (totalRev - totalExp).toFixed(2);
+  document.getElementById('crmTotalOrders').innerText = sales.length;
+  document.getElementById('crmAvgOrder').innerText = '₹' + (sales.length ? (totalRev / sales.length).toFixed(2) : '0.00');
+  document.getElementById('crmTotalDues').innerText = '₹' + totalDues.toFixed(2);
+  document.getElementById('crmTotalCust').innerText = Object.keys(customers).length;
+}
+
+function renderExpensesTab() {
+  const totalRev = sales.reduce((sum, s) => sum + s.total, 0);
+  const totalOpExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalSalaries = staffMembers.reduce((sum, s) => sum + s.salary, 0);
+
+  let totalCommissions = 0;
+  staffMembers.forEach(st => {
+    const totalStaffRev = sales.filter(sa => sa.staffName === st.name).reduce((sum, sa) => sum + sa.total, 0);
+    totalCommissions += (totalStaffRev * (st.commRevenue || 0)) / 100;
+  });
+
+  const netProfit = totalRev - totalOpExpenses - totalSalaries - totalCommissions;
+
+  document.getElementById('pnlTotalRev').innerText = '₹' + totalRev.toFixed(2);
+  document.getElementById('pnlTotalOpExpenses').innerText = '₹' + totalOpExpenses.toFixed(2);
+  document.getElementById('pnlTotalStaffCost').innerText = '₹' + (totalSalaries + totalCommissions).toFixed(2);
+  document.getElementById('pnlNetProfitVal').innerText = '₹' + netProfit.toFixed(2);
+
+  document.getElementById('summaryRevenue').innerText = '₹' + totalRev.toFixed(2);
+  document.getElementById('summaryExpenses').innerText = '₹' + totalOpExpenses.toFixed(2);
+  document.getElementById('summarySalaries').innerText = '₹' + totalSalaries.toFixed(2);
+  document.getElementById('summaryCommissions').innerText = '₹' + totalCommissions.toFixed(2);
+  document.getElementById('summaryNetProfit').innerText = '₹' + netProfit.toFixed(2);
+
+  renderExpenseTable();
+}
+
+function saveExpenseRecord() {
+  const date = document.getElementById('expenseDate').value;
+  const category = document.getElementById('expenseCategory').value;
+  const title = document.getElementById('expenseTitle').value.trim();
+  const amount = parseFloat(document.getElementById('expenseAmount').value) || 0;
+
+  if (!date || !title || amount <= 0) return alert('Fill in expense details and valid amount.');
+
+  expenses.push({ id: Date.now(), date, category, title, amount });
+  localStorage.setItem('nitusharma_expenses', JSON.stringify(expenses));
+
+  document.getElementById('expenseTitle').value = '';
+  document.getElementById('expenseAmount').value = '';
+
+  renderExpensesTab();
+  alert('Expense logged successfully!');
+}
+
+function renderExpenseTable() {
+  const tbody = document.getElementById('expenseTableBody');
+  const query = (document.getElementById('searchExpenseInput')?.value || '').toLowerCase();
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  const filtered = expenses.filter(e => e.title.toLowerCase().includes(query) || e.category.toLowerCase().includes(query));
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No expense records found.</td></tr>';
+    return;
+  }
+
+  [...filtered].reverse().forEach((e) => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${e.date}</td>
+        <td>${e.category}</td>
+        <td>${e.title}</td>
+        <td style="color:#ef4444; font-weight:bold;">₹${e.amount.toFixed(2)}</td>
+        <td>
+          <button class="btn btn-danger btn-sm" onclick="deleteExpense(${e.id})"><i class="fa-solid fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function deleteExpense(id) {
+  if (confirm('Delete expense log entry?')) {
+    expenses = expenses.filter(e => e.id !== id);
+    localStorage.setItem('nitusharma_expenses', JSON.stringify(expenses));
+    renderExpensesTab();
+  }
+}
+
+/* SECURITY & ACCOUNT MANAGEMENT */
+function checkLoginStatus() {
+  const overlay = document.getElementById('loginModalOverlay');
+  if (loginEnabled) {
+    overlay.style.display = 'flex';
+  } else {
+    overlay.style.display = 'none';
+  }
+}
+
+function attemptLogin() {
+  const id = document.getElementById('loginUserId').value.trim();
+  const pass = document.getElementById('loginPassword').value.trim();
+
+  const acc = userAccounts.find(u => u.id === id && u.pass === pass);
+  if (acc) {
+    currentUser = { id: acc.id, role: acc.role };
+    localStorage.setItem('nitusharma_current_user', JSON.stringify(currentUser));
+    document.getElementById('loginModalOverlay').style.display = 'none';
+    document.getElementById('currentRoleBadge').innerHTML = `<i class="fa-solid fa-user-shield"></i> Role: ${acc.role.toUpperCase()}`;
+    document.getElementById('currentUserAvatar').innerText = acc.id.slice(0, 2).toUpperCase();
+    document.getElementById('logoutBtn').style.display = 'inline-flex';
+  } else {
+    alert('Invalid User ID or Password.');
+  }
+}
+
+function logout() {
+  location.reload();
+}
+
+function toggleLoginSetting(enabled) {
+  loginEnabled = enabled;
+  localStorage.setItem('nitusharma_login_enabled', JSON.stringify(loginEnabled));
+}
+
+function saveUserAccount() {
+  const id = document.getElementById('accUserId').value.trim();
+  const pass = document.getElementById('accPassword').value.trim();
+  const role = document.getElementById('accRole').value;
+
+  if (!id || !pass) return alert('Enter User ID and Password.');
+
+  const idx = userAccounts.findIndex(u => u.id === id);
+  if (idx > -1) {
+    userAccounts[idx] = { id, pass, role };
+  } else {
+    if (userAccounts.length >= 4) return alert('Maximum 4 user accounts permitted.');
+    userAccounts.push({ id, pass, role });
+  }
+
+  localStorage.setItem('nitusharma_accounts', JSON.stringify(userAccounts));
+  document.getElementById('accUserId').value = '';
+  document.getElementById('accPassword').value = '';
+  renderLoginAccounts();
+  alert('User account saved successfully!');
+}
+
+function renderLoginAccounts() {
+  const tbody = document.getElementById('loginAccountsTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  userAccounts.forEach((u, idx) => {
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${u.id}</strong></td>
+        <td><span class="badge badge-regular">${u.role.toUpperCase()}</span></td>
+        <td>••••••••</td>
+        <td>
+          ${u.id !== 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteUserAccount(${idx})"><i class="fa-solid fa-trash"></i></button>` : '<em>System Admin</em>'}
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function deleteUserAccount(idx) {
+  if (confirm('Delete user account?')) {
+    userAccounts.splice(idx, 1);
+    localStorage.setItem('nitusharma_accounts', JSON.stringify(userAccounts));
+    renderLoginAccounts();
+  }
 }
 </script>
 </body>
