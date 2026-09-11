@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Makeover by Nitu Sharma - Admin Panel Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
 :root {
@@ -170,6 +172,8 @@ td:last-child { border-right: 1px solid var(--border-color); }
 input:checked + .slider { background-color: var(--primary); }
 input:checked + .slider:before { transform: translateX(22px); }
 
+/* WhatsApp Invoice PDF */
+.pdf-note { font-size: 11px; color: var(--text-muted); margin-top: 8px; line-height: 1.45; }
 /* Thermal Receipt Print */
 @media print {
   body * { visibility: hidden; }
@@ -1118,6 +1122,7 @@ input:checked + .slider:before { transform: translateX(22px); }
               <button class="btn btn-warning" onclick="restoreFromSupabase()"><i class="fa-solid fa-cloud-arrow-down"></i> Restore from Supabase</button>
               <button class="btn btn-danger" onclick="disconnectSupabase()"><i class="fa-solid fa-link-slash"></i> Disconnect</button>
               <span id="supabaseStatus" style="font-size:13px;font-weight:600;">Not connected</span>
+               <button class="btn btn-primary btn-sm" onclick="showSupabaseSetup()" title="Show required SQL setup"><i class="fa-solid fa-database"></i> Setup SQL</button>
             </div>
             <small style="display:block;margin-top:10px;color:var(--text-muted);">Use only a Supabase publishable/anon key in this browser. Never paste a service-role/secret key here.</small>
           </div>
@@ -1258,7 +1263,165 @@ window.onload = function() {
   const savedKey = localStorage.getItem('nitusharma_supabase_key') || '';
   if (document.getElementById('supabaseUrl')) document.getElementById('supabaseUrl').value = savedUrl;
   if (document.getElementById('supabaseKey')) document.getElementById('supabaseKey').value = savedKey;
+  if (savedUrl && savedKey) setSupabaseStatus('Saved credentials — click Connect', false);
 };
+
+/* SUPABASE CLOUD BACKUP & RESTORE */
+let supabaseConfig = { url: '', key: '' };
+const SUPABASE_TABLE = 'mns_pos_backups';
+
+function getSupabaseConfig() {
+  const url = (document.getElementById('supabaseUrl')?.value || localStorage.getItem('nitusharma_supabase_url') || '').trim().replace(/\/$/, '');
+  const key = (document.getElementById('supabaseKey')?.value || localStorage.getItem('nitusharma_supabase_key') || '').trim();
+  return { url, key };
+}
+
+function setSupabaseStatus(text, ok = false) {
+  const el = document.getElementById('supabaseStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = ok ? '#16a34a' : '#dc2626';
+}
+
+function validateSupabaseConfig() {
+  const cfg = getSupabaseConfig();
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(cfg.url)) {
+    alert('Please enter a valid Supabase Project URL, for example https://your-project.supabase.co');
+    return null;
+  }
+  if (!cfg.key || cfg.key.length < 20) {
+    alert('Please enter your Supabase publishable/anon key. Never use a service-role/secret key in this browser.');
+    return null;
+  }
+  supabaseConfig = cfg;
+  localStorage.setItem('nitusharma_supabase_url', cfg.url);
+  localStorage.setItem('nitusharma_supabase_key', cfg.key);
+  return cfg;
+}
+
+async function supabaseRequest(path, options = {}) {
+  const cfg = supabaseConfig.url && supabaseConfig.key ? supabaseConfig : getSupabaseConfig();
+  if (!cfg.url || !cfg.key) throw new Error('Supabase is not configured.');
+  const headers = Object.assign({
+    'apikey': cfg.key,
+    'Authorization': 'Bearer ' + cfg.key,
+    'Content-Type': 'application/json'
+  }, options.headers || {});
+  const response = await fetch(cfg.url + '/rest/v1/' + path, Object.assign({}, options, { headers }));
+  const text = await response.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }
+  if (!response.ok) {
+    const detail = data?.message || data?.hint || data?.details || data?.error_description || (typeof data === 'string' ? data : 'Supabase request failed');
+    throw new Error(detail);
+  }
+  return data;
+}
+
+function getFullSystemBackupObject() {
+  return {
+    version: 2,
+    app: 'MNS POS',
+    exportedAt: new Date().toISOString(),
+    services,
+    products,
+    customers,
+    sales,
+    staffMembers,
+    expenses,
+    userAccounts,
+    loginEnabled
+  };
+}
+
+async function connectSupabase() {
+  const cfg = validateSupabaseConfig();
+  if (!cfg) return false;
+  setSupabaseStatus('Connecting...', false);
+  try {
+    // A HEAD/GET against the backup table confirms URL, key, REST access and RLS.
+    await supabaseRequest(SUPABASE_TABLE + '?select=id&limit=1');
+    supabaseConfig = cfg;
+    setSupabaseStatus('Connected', true);
+    alert('Supabase connected successfully.');
+    return true;
+  } catch (err) {
+    setSupabaseStatus('Connection failed', false);
+    alert('Supabase connection failed:\n\n' + err.message + '\n\nIf this is the first setup, click “Setup SQL” and run the provided SQL in Supabase SQL Editor.');
+    return false;
+  }
+}
+
+async function backupToSupabase() {
+  const cfg = validateSupabaseConfig();
+  if (!cfg) return;
+  setSupabaseStatus('Uploading backup...', false);
+  try {
+    const backup = getFullSystemBackupObject();
+    await supabaseRequest(SUPABASE_TABLE + '?on_conflict=id', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify([{ id: 1, backup_data: backup, updated_at: new Date().toISOString() }])
+    });
+    setSupabaseStatus('Backup saved • ' + new Date().toLocaleString(), true);
+    alert('Backup uploaded to Supabase successfully.');
+  } catch (err) {
+    setSupabaseStatus('Backup failed', false);
+    alert('Supabase backup failed:\n\n' + err.message + '\n\nCheck that the mns_pos_backups table and RLS policies were created using “Setup SQL”.');
+  }
+}
+
+async function restoreFromSupabase() {
+  const cfg = validateSupabaseConfig();
+  if (!cfg) return;
+  if (!confirm('Restore the POS from the latest Supabase backup? Current browser data will be replaced.')) return;
+  setSupabaseStatus('Downloading backup...', false);
+  try {
+    const rows = await supabaseRequest(SUPABASE_TABLE + '?select=backup_data,updated_at&id=eq.1&limit=1');
+    if (!rows || !rows.length || !rows[0].backup_data) throw new Error('No cloud backup was found.');
+    const data = rows[0].backup_data;
+    if (!data.services || !data.products || !data.customers || !data.sales) throw new Error('Cloud backup is invalid or incomplete.');
+    localStorage.setItem('nitusharma_items', JSON.stringify(data.services));
+    localStorage.setItem('nitusharma_products', JSON.stringify(data.products));
+    localStorage.setItem('nitusharma_customers', JSON.stringify(data.customers));
+    localStorage.setItem('nitusharma_sales', JSON.stringify(data.sales));
+    localStorage.setItem('nitusharma_staff', JSON.stringify(data.staffMembers || []));
+    localStorage.setItem('nitusharma_expenses', JSON.stringify(data.expenses || []));
+    localStorage.setItem('nitusharma_accounts', JSON.stringify(data.userAccounts || [{ id: 'admin', pass: 'admin123', role: 'admin' }]));
+    localStorage.setItem('nitusharma_login_enabled', JSON.stringify(!!data.loginEnabled));
+    setSupabaseStatus('Restored • ' + new Date().toLocaleString(), true);
+    alert('Cloud backup restored successfully. The POS will now reload.');
+    location.reload();
+  } catch (err) {
+    setSupabaseStatus('Restore failed', false);
+    alert('Supabase restore failed:\n\n' + err.message);
+  }
+}
+
+function disconnectSupabase() {
+  supabaseConfig = { url: '', key: '' };
+  localStorage.removeItem('nitusharma_supabase_url');
+  localStorage.removeItem('nitusharma_supabase_key');
+  if (document.getElementById('supabaseUrl')) document.getElementById('supabaseUrl').value = '';
+  if (document.getElementById('supabaseKey')) document.getElementById('supabaseKey').value = '';
+  setSupabaseStatus('Not connected', false);
+  alert('Supabase connection details removed from this browser.');
+}
+
+function showSupabaseSetup() {
+  const sql = `-- MNS POS cloud backup table\ncreate table if not exists public.mns_pos_backups (\n  id bigint primary key,\n  backup_data jsonb not null,\n  updated_at timestamptz not null default now()\n);\n\nalter table public.mns_pos_backups enable row level security;\n\ndrop policy if exists "mns_pos_backups_anon_select" on public.mns_pos_backups;\ndrop policy if exists "mns_pos_backups_anon_insert" on public.mns_pos_backups;\ndrop policy if exists "mns_pos_backups_anon_update" on public.mns_pos_backups;\n\ncreate policy "mns_pos_backups_anon_select" on public.mns_pos_backups\nfor select to anon using (true);\n\ncreate policy "mns_pos_backups_anon_insert" on public.mns_pos_backups\nfor insert to anon with check (true);\n\ncreate policy "mns_pos_backups_anon_update" on public.mns_pos_backups\nfor update to anon using (true) with check (true);`;
+  const message = 'Run this SQL once in Supabase → SQL Editor, then return to the POS and click Connect.\n\n' + sql;
+  if (navigator.clipboard) navigator.clipboard.writeText(sql).catch(() => {});
+  alert(message + '\n\nThe SQL has also been copied to your clipboard when the browser permits it.');
+}
+
+function initializeSupabaseUI() {
+  const savedUrl = localStorage.getItem('nitusharma_supabase_url') || '';
+  const savedKey = localStorage.getItem('nitusharma_supabase_key') || '';
+  if (document.getElementById('supabaseUrl')) document.getElementById('supabaseUrl').value = savedUrl;
+  if (document.getElementById('supabaseKey')) document.getElementById('supabaseKey').value = savedKey;
+  if (savedUrl && savedKey) setSupabaseStatus('Saved credentials — click Connect', false);
+}
 
 /* INVENTORY MANAGEMENT FUNCTIONS */
 function saveProductInventory() {
@@ -1492,43 +1655,109 @@ function saveAndPrintBill() {
   resetBillForm();
 }
 
-function printBillById(saleId) {
-  const sale = sales.find(s => s.id === saleId);
-  if (!sale) return alert('Bill not found!');
+function populateReceiptForSale(sale) {
+  document.getElementById('rInvoice').innerText=sale.id; document.getElementById('rDate').innerText=sale.date;
+  document.getElementById('rName').innerText=sale.customerName||''; document.getElementById('rPhone').innerText=sale.customerPhone||'';
+  document.getElementById('rStaffName').innerText=sale.staffName||'N/A';
+  const rItems=document.getElementById('rItems'); rItems.innerHTML='';
+  (Array.isArray(sale.itemsDetail)?sale.itemsDetail:[]).forEach(item=>{const tr=document.createElement('tr'),a=document.createElement('td'),b=document.createElement('td');a.innerText=item.name||'Item';b.innerText='₹'+Number(item.price||0).toFixed(2);b.style.textAlign='right';tr.appendChild(a);tr.appendChild(b);rItems.appendChild(tr);});
+  document.getElementById('rSub').innerText=Number(sale.subtotal||sale.total||0).toFixed(2); document.getElementById('rTax').innerText=Number(sale.tax||0).toFixed(2);
+  document.getElementById('rDisc').innerText=Number(sale.discount||0).toFixed(2); document.getElementById('rPtsRedeemed').innerText=Number(sale.redeemPts||0).toFixed(2);
+  document.getElementById('rWalletUsed').innerText=Number(sale.walletUsed||0).toFixed(2); document.getElementById('rTotal').innerText=Number(sale.total||0).toFixed(2);
+  document.getElementById('rPaid').innerText=Number(sale.paid||0).toFixed(2); document.getElementById('rDue').innerText=Number(sale.due||0).toFixed(2);
+}
+function printBillById(saleId){const sale=sales.find(s=>s.id===saleId);if(!sale)return alert('Bill not found!');populateReceiptForSale(sale);window.print();}
 
-  document.getElementById('rInvoice').innerText = sale.id;
-  document.getElementById('rDate').innerText = sale.date;
-  document.getElementById('rName').innerText = sale.customerName;
-  document.getElementById('rPhone').innerText = sale.customerPhone;
-  document.getElementById('rStaffName').innerText = sale.staffName || 'N/A';
-  
-  const rItems = document.getElementById('rItems');
-  rItems.innerHTML = '';
-  if (sale.itemsDetail && sale.itemsDetail.length > 0) {
-    sale.itemsDetail.forEach(item => {
-      rItems.innerHTML += `<tr><td>${item.name}</td><td style="text-align:right;">₹${item.price.toFixed(2)}</td></tr>`;
-    });
-  }
-
-  document.getElementById('rSub').innerText = (sale.subtotal || sale.total).toFixed(2);
-  document.getElementById('rTax').innerText = (sale.tax || 0).toFixed(2);
-  document.getElementById('rDisc').innerText = (sale.discount || 0).toFixed(2);
-  document.getElementById('rPtsRedeemed').innerText = (sale.redeemPts || 0).toFixed(2);
-  document.getElementById('rWalletUsed').innerText = (sale.walletUsed || 0).toFixed(2);
-  document.getElementById('rTotal').innerText = sale.total.toFixed(2);
-  document.getElementById('rPaid').innerText = sale.paid.toFixed(2);
-  document.getElementById('rDue').innerText = sale.due.toFixed(2);
-
-  window.print();
+function normalizeWhatsAppPhone(phone){
+  let digits=String(phone||'').replace(/\D/g,'');
+  if(digits.length===10) digits='91'+digits;
+  else if(digits.length===11 && digits.charAt(0)==='0') digits='91'+digits.slice(1);
+  else if(digits.indexOf('91')===0 && digits.length===12) digits=digits;
+  return digits;
 }
 
-function saveAndSendWhatsApp() {
-  const sale = processCurrentSale();
-  if (!sale) return;
+function buildWhatsAppBillMessage(sale){
+  const items=Array.isArray(sale.itemsDetail)?sale.itemsDetail:[];
+  const points=Math.max(0,Math.floor(Number(sale.total||0)/100)-(Number(sale.redeemPts||0)));
+  const lines=[];
+  lines.push('✨ *MAKEOVER BY NITU SHARMA* ✨');
+  lines.push('------------------------------------');
+  lines.push(`Hello *${sale.customerName||'Customer'}*, thank you for choosing Makeover by Nitu Sharma!`);
+  lines.push('');
+  lines.push(`🧾 *Invoice No:* #${sale.id||''}`);
+  lines.push(`📅 *Date:* ${sale.date||''}`);
+  lines.push('');
+  lines.push('✨ *Services Rendered:*');
+  if(items.length){items.forEach((item,i)=>lines.push(`${i+1}. ${item.name||'Item'} - ₹${Number(item.price||0).toFixed(2)}`));}
+  else lines.push('1. No items');
+  lines.push('------------------------------------');
+  lines.push(`Subtotal: ₹${Number(sale.subtotal||sale.total||0).toFixed(2)}`);
+  lines.push(`Discount: -₹${Number(sale.discount||0).toFixed(2)}`);
+  lines.push(`Points Earned: +${points} pts`);
+  lines.push(`*TOTAL BILL:* ₹${Number(sale.total||0).toFixed(2)}`);
+  lines.push(`*Amount Paid:* ₹${Number(sale.paid||0).toFixed(2)}`);
+  lines.push(`*Due Balance:* ₹${Number(sale.due||0).toFixed(2)}`);
+  lines.push('------------------------------------');
+  lines.push('');
+  lines.push('⭐ *Please Review Our 5 Star Service!*');
+  lines.push('We would love to hear about your experience. Please take a moment to leave us a *5-star Google Review*:');
+  lines.push('https://g.page/r/CY9qnXdoSK8XEAI/review');
+  lines.push('');
+  lines.push('📸 *Follow Us on Instagram*');
+  lines.push('https://www.instagram.com/mahi_beautymakeover?igsh=dzBwcTF0ZDB4d2Ux');
+  lines.push('');
+  lines.push('Thank you for your love and support! ❤️');
+  lines.push('We look forward to seeing you again! 😊');
+  return lines.join('\n');
+}
 
-  const msg = `*MAKEOVER BY NITU SHARMA*\nInvoice #${sale.id}\nClient: ${sale.customerName}\nTotal: ₹${sale.total.toFixed(2)}\nPaid: ₹${sale.paid.toFixed(2)}\nDue: ₹${sale.due.toFixed(2)}\nThank you!`;
-  window.open(`https://wa.me/91${sale.customerPhone}?text=${encodeURIComponent(msg)}`);
-  resetBillForm();
+async function buildInvoicePDF(sale){
+  if(!window.jspdf||!window.jspdf.jsPDF||!window.html2canvas){alert('PDF renderer could not be loaded. Please check your internet connection and try again.');return null;}
+  populateReceiptForSale(sale); const receipt=document.getElementById('receipt-print'); if(!receipt)return null;
+  const old={position:receipt.style.position,left:receipt.style.left,top:receipt.style.top,width:receipt.style.width,display:receipt.style.display,visibility:receipt.style.visibility,background:receipt.style.background,padding:receipt.style.padding,boxSizing:receipt.style.boxSizing};
+  Object.assign(receipt.style,{position:'fixed',left:'-10000px',top:'0',width:'80mm',display:'block',visibility:'visible',background:'#fff',padding:'10px',boxSizing:'border-box',fontFamily:'monospace',fontSize:'12px'});
+  try{await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));const canvas=await html2canvas(receipt,{scale:2,backgroundColor:'#fff',useCORS:true,allowTaint:false,logging:false,windowWidth:receipt.scrollWidth,windowHeight:receipt.scrollHeight});const {jsPDF}=window.jspdf;const w=80,h=Math.max(40,canvas.height*(w/canvas.width));const doc=new jsPDF({unit:'mm',format:[w,h],orientation:'portrait'});doc.addImage(canvas.toDataURL('image/jpeg',.96),'JPEG',0,0,w,h,undefined,'FAST');const filename='Bill_'+String(sale.id||'MNS').replace(/[^a-zA-Z0-9_-]/g,'_')+'.pdf';return{doc,blob:doc.output('blob'),filename};}catch(e){console.error(e);alert('Could not create the PDF bill. Please try again.');return null;}finally{Object.keys(old).forEach(k=>receipt.style[k]=old[k]);}
+}
+async function downloadInvoicePDF(sale){const result=await buildInvoicePDF(sale);if(!result)return null;const url=URL.createObjectURL(result.blob),link=document.createElement('a');link.href=url;link.download=result.filename;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);return result;}
+async function shareInvoicePDFOnWhatsApp(sale){
+  if(!sale) return false;
+  const phone=normalizeWhatsAppPhone(sale.customerPhone);
+  if(!/^91\d{10}$/.test(phone)){
+    alert('Invalid Indian mobile number. Please enter a valid 10-digit mobile number.');
+    return false;
+  }
+  const message=buildWhatsAppBillMessage(sale);
+  const result=await downloadInvoicePDF(sale);
+  if(!result) return false;
+  // Open WhatsApp only after the PDF has been generated/downloaded so the button
+  // reliably navigates even when popup blockers are enabled.
+  const whatsappUrl=`https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  window.location.href=whatsappUrl;
+  return true;
+}
+
+async function saveAndSendWhatsApp(){const sale=processCurrentSale();if(!sale)return;const ok=await shareInvoicePDFOnWhatsApp(sale);if(ok)resetBillForm();}
+
+function sendSaleWhatsApp(saleId) {
+  const sale = sales.find(s => s.id === saleId);
+  if (!sale) return alert('Bill not found!');
+  shareInvoicePDFOnWhatsApp(sale);
+}
+
+function downloadSalePDF(saleId) {
+  const sale = sales.find(s => s.id === saleId);
+  if (!sale) return alert('Bill not found!');
+  downloadInvoicePDF(sale);
+}
+
+function openWhatsAppForPhone(phone) {
+  const normalized = normalizeWhatsAppPhone(phone);
+  if (!/^91\d{10}$/.test(normalized)) {
+    alert('Invalid Indian mobile number.');
+    return;
+  }
+  const popup = window.open(`https://wa.me/${normalized}`, '_blank', 'noopener,noreferrer');
+  if (!popup) alert('WhatsApp was blocked by the browser. Please allow pop-ups for this POS.');
 }
 
 function processCurrentSale() {
@@ -1685,7 +1914,7 @@ function renderCustomers() {
         <td>₹${(c.wallet || 0).toFixed(2)}</td>
         <td>${c.lastVisit || 'N/A'}</td>
         <td>
-          <button class="btn btn-whatsapp btn-sm" onclick="window.open('https://wa.me/91${c.phone}')"><i class="fa-brands fa-whatsapp"></i></button>
+          <button class="btn btn-whatsapp btn-sm" onclick="openWhatsAppForPhone('${c.phone}')"><i class="fa-brands fa-whatsapp"></i></button>
         </td>
       </tr>
     `;
@@ -1720,7 +1949,7 @@ function renderSales() {
             <button class="btn btn-primary btn-sm" title="Edit Bill" onclick="editSale('${s.id}')"><i class="fa-solid fa-pen"></i></button>
             <button class="btn btn-success btn-sm" title="Print Bill" onclick="printBillById('${s.id}')"><i class="fa-solid fa-print"></i></button>
             <button class="btn btn-danger btn-sm" title="Delete Bill" onclick="deleteSale('${s.id}')"><i class="fa-solid fa-trash"></i></button>
-            <button class="btn btn-whatsapp btn-sm" title="WhatsApp" onclick="window.open('https://wa.me/91${s.customerPhone}')"><i class="fa-brands fa-whatsapp"></i></button>
+            <button class="btn btn-whatsapp btn-sm" title="WhatsApp" onclick="sendSaleWhatsApp('${s.id}')"><i class="fa-brands fa-whatsapp"></i></button>
           </div>
         </td>
       </tr>
