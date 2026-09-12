@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1989,30 +1991,46 @@ async function shareInvoicePDFOnWhatsApp(sale){
   }
 
   const message=buildWhatsAppBillMessage(sale);
+
+  // WhatsApp bills are always generated as a 3-inch / 80mm PDF,
+  // regardless of the printer paper-size setting selected in the POS.
+  const originalPaperSize=getThermalPaperSize();
+  localStorage.setItem('mns_thermal_paper_size','80');
+  applyThermalPaperSize();
   const result=await buildInvoicePDF(sale);
+  if(originalPaperSize) localStorage.setItem('mns_thermal_paper_size',originalPaperSize);
+  else localStorage.removeItem('mns_thermal_paper_size');
+  applyThermalPaperSize();
   if(!result) return false;
 
-  // On supported mobile browsers, use the native share sheet so the PDF is
-  // attached first and the WhatsApp message is supplied as its caption/text.
-  // This is the only browser-safe way to attach a locally generated PDF to WhatsApp.
+  // Best-case path: mobile browsers can hand the generated 3-inch PDF
+  // directly to WhatsApp through the native share sheet. The PDF is included
+  // as a real attachment and the complete bill is supplied as the message.
   try{
     const file=new File([result.blob],result.filename,{type:'application/pdf'});
-    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
-      await navigator.share({files:[file],text:message,title:result.filename});
+    const canShareFiles=navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}));
+    if(canShareFiles){
+      await navigator.share({files:[file],text:message,title:'MAKEOVER BY NITU SHARMA - Bill'});
       return true;
     }
   }catch(e){
     if(e && e.name==='AbortError') return false;
-    console.warn('Native PDF sharing was unavailable; falling back to WhatsApp text.',e);
+    console.warn('Direct PDF sharing was unavailable. Falling back to WhatsApp text.',e);
   }
 
-  // Desktop/fallback: save the PDF and open WhatsApp with the complete message.
-  // Browsers do not allow wa.me links to programmatically attach a local PDF.
+  // Browser security does not permit a normal wa.me/WhatsApp Web URL to
+  // attach a locally generated PDF automatically. Download the 3-inch PDF,
+  // then redirect straight to the selected customer's WhatsApp number with
+  // the complete bill text. This keeps the selected number and bill message
+  // automatic even when PDF attachment is not supported by the browser.
   const url=URL.createObjectURL(result.blob);
   const link=document.createElement('a');
-  link.href=url; link.download=result.filename;
-  document.body.appendChild(link); link.click(); link.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),15000);
+  link.href=url;
+  link.download=result.filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
 
   const whatsappUrl=`https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   window.location.href=whatsappUrl;
@@ -3230,6 +3248,350 @@ function deleteUserAccount(idx) {
   }
 }
 </script>
+
+<style id="mns-fixes-v3">
+/* ===== Mobile admin navigation ===== */
+.mobile-menu-toggle{
+  display:none; border:0; background:#0f172a; color:#fff; width:42px; height:42px;
+  border-radius:9px; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto;
+}
+.mobile-menu-overlay{display:none;}
+@media (max-width: 768px){
+  body{display:block; height:100vh; overflow:hidden;}
+  .admin-wrapper{display:block; width:100%; height:100vh;}
+  .sidebar{
+    position:fixed; left:0; top:0; bottom:0; width:280px; z-index:10000;
+    transform:translateX(-105%); box-shadow:8px 0 30px rgba(0,0,0,.25);
+  }
+  .sidebar.mobile-open{transform:translateX(0);}
+  .mobile-menu-overlay{
+    position:fixed; inset:0; background:rgba(15,23,42,.48); z-index:9999;
+  }
+  .mobile-menu-overlay.show{display:block;}
+  .main-content{width:100%; height:100vh; overflow-y:auto;}
+  .top-header{padding:10px 12px; gap:10px; position:sticky; top:0;}
+  .header-title{min-width:0; flex:1;}
+  .header-title h2{font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .header-title p{font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .user-profile{gap:6px;}
+  .badge-pro{display:none;}
+  .avatar{width:32px;height:32px;font-size:12px;}
+  .mobile-menu-toggle{display:inline-flex;}
+  .content-body{padding:12px;}
+  .grid-2,.grid-charts{grid-template-columns:1fr; gap:12px;}
+  .grid-cards{grid-template-columns:1fr; gap:10px;}
+  .card-box{padding:14px; overflow-x:auto;}
+  .card-box h3{font-size:14px; min-width:max-content;}
+  .card-box > table{min-width:700px;}
+  .card-box table{font-size:12px;}
+  th,td{padding:9px 10px; white-space:nowrap;}
+  .search-bar{width:100%; max-width:none;}
+  .filter-container{align-items:stretch; padding:10px; flex-direction:column;}
+  .filter-group{width:100%;}
+  .filter-btn{flex:1; min-width:72px;}
+  #filterStartDate,#filterEndDate{width:calc(50% - 18px) !important;}
+  .grid-2 .card-box > div[style*="display: flex"],
+  .grid-2 .card-box > div[style*="display:flex"]{flex-wrap:wrap;}
+  .grid-2 .card-box input,.grid-2 .card-box select,
+  .grid-2 .card-box textarea{max-width:100%;}
+  #billing-tab .grid-2 > .card-box:first-child > div[style*="grid-template-columns"]{
+    grid-template-columns:1fr !important;
+  }
+  #billing-tab .grid-2 > .card-box:first-child > div[style*="grid-template-columns"] .form-group{
+    grid-column:auto !important;
+  }
+  #serviceSelect,#productPosSelect{min-width:0;}
+  #walletTopupPhone,#walletTopupAmount,#refExistingPhone,#refNewPhone{flex:1 1 100% !important;}
+  #promo-tab .grid-2{grid-template-columns:1fr;}
+  #promo-tab .grid-2 > .card-box > div[style*="display: flex"],
+  #promo-tab .grid-2 > .card-box > div[style*="display:flex"]{flex-wrap:wrap;}
+  .crm-chart-body{height:260px;min-height:230px;}
+}
+</style>
+<script id="mns-fixes-v3-script">
+(function(){
+  "use strict";
+
+  /* ---------- Small safe helpers ---------- */
+  function saveMNSState(){
+    localStorage.setItem('nitusharma_customers', JSON.stringify(customers));
+    localStorage.setItem('nitusharma_sales', JSON.stringify(sales));
+  }
+  function esc(v){
+    return String(v ?? '').replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+  function customerKey(phone){
+    return String(phone || '').replace(/\D/g,'');
+  }
+
+  /* ---------- Wallet: restore missing Add Funds action ---------- */
+  window.topupWallet = function(){
+    const phoneRaw = document.getElementById('walletTopupPhone')?.value.trim() || '';
+    const amount = Number(document.getElementById('walletTopupAmount')?.value || 0);
+    const phone = customerKey(phoneRaw);
+
+    if(!phone || phone.length < 10) return alert('Enter a valid client mobile number.');
+    if(amount <= 0 || !Number.isFinite(amount)) return alert('Enter a valid wallet amount.');
+
+    let key = phoneRaw;
+    if(!customers[key]){
+      key = Object.keys(customers).find(k => customerKey(k) === phone) || '';
+    }
+    if(!key || !customers[key]){
+      return alert('Client not found in Client Directory. Please register the client first.');
+    }
+
+    const c = customers[key];
+    c.wallet = Math.max(0, Number(c.wallet) || 0) + amount;
+    customers[key] = c;
+    saveMNSState();
+
+    document.getElementById('walletTopupPhone').value = '';
+    document.getElementById('walletTopupAmount').value = '';
+
+    if(typeof renderCustomers === 'function') renderCustomers();
+    if(typeof renderLoyaltyDirectory === 'function') renderLoyaltyDirectory();
+    if(typeof updateLoyaltyMetrics === 'function') updateLoyaltyMetrics();
+
+    alert('₹' + amount.toFixed(2) + ' added to ' + (c.name || 'client') + '\'s wallet successfully.');
+  };
+
+  /* ---------- Loyalty directory/metrics (the original file had the UI but no working handlers) ---------- */
+  window.renderLoyaltyDirectory = function(){
+    const tbody = document.getElementById('loyaltyTableBody');
+    if(!tbody) return;
+    const list = Object.values(customers || {});
+    if(!list.length){
+      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">No client records found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML=list.map(c=>{
+      const pts=Number(c.points)||0, wallet=Number(c.wallet)||0;
+      const tier=pts>=500?'Gold VIP':'Silver';
+      const phone=esc(c.phone||'');
+      return `<tr>
+        <td><strong>${esc(c.name||'Unknown')}</strong></td>
+        <td>${phone}</td>
+        <td><span class="badge ${pts>=500?'badge-gold':'badge-silver'}">${tier}</span></td>
+        <td>${pts}</td>
+        <td>₹${wallet.toFixed(2)}</td>
+        <td><button class="btn btn-whatsapp btn-sm" onclick="sendCustomerGreeting('${phone}')"><i class="fa-brands fa-whatsapp"></i></button></td>
+      </tr>`;
+    }).join('');
+  };
+  window.updateLoyaltyMetrics = function(){
+    const vals=Object.values(customers||{});
+    const points=vals.reduce((a,c)=>a+(Number(c.points)||0),0);
+    const wallet=vals.reduce((a,c)=>a+(Number(c.wallet)||0),0);
+    const el1=document.getElementById('loyaltyTotalPoints'), el2=document.getElementById('loyaltyWalletTotal');
+    if(el1) el1.innerText=points;
+    if(el2) el2.innerText='₹'+wallet.toFixed(2);
+  };
+
+  /* ---------- Promotions: always use the same customer source as Client Directory ---------- */
+  window.renderPromoCustomerTable = function(){
+    const tbody=document.getElementById('promoCustomerTableBody');
+    if(!tbody) return;
+    const q=(document.getElementById('searchPromoCust')?.value||'').trim().toLowerCase();
+    const oldSelected=new Set(Array.from(document.querySelectorAll('.promo-customer-check:checked')).map(x=>x.dataset.phone));
+    const list=Object.values(customers||{}).filter(c=>
+      !q || String(c.name||'').toLowerCase().includes(q) || String(c.phone||'').includes(q)
+    );
+    if(!list.length){
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">No client records found.</td></tr>';
+    } else {
+      tbody.innerHTML=list.map(c=>{
+        const phone=String(c.phone||'').trim();
+        return `<tr>
+          <td style="text-align:center;"><input type="checkbox" class="promo-customer-check" data-phone="${esc(phone)}" ${oldSelected.has(phone)?'checked':''} onchange="updatePromoSelectedCount()"></td>
+          <td><strong>${esc(c.name||'Unknown')}</strong></td>
+          <td>${esc(phone)}</td>
+          <td>₹${(Number(c.totalSpent)||0).toFixed(2)}</td>
+          <td>${Number(c.visits)||0}</td>
+          <td>${Number(c.points)||0}</td>
+          <td>${esc(c.lastVisit||'N/A')}</td>
+        </tr>`;
+      }).join('');
+    }
+    updatePromoSelectedCount();
+  };
+  window.updatePromoSelectedCount=function(){
+    const n=document.querySelectorAll('#promoCustomerTableBody .promo-customer-check:checked').length;
+    const el=document.getElementById('selectedCountDisplay'); if(el) el.innerText=n;
+  };
+  window.toggleSelectAllPromo=function(box){
+    document.querySelectorAll('#promoCustomerTableBody .promo-customer-check').forEach(x=>x.checked=!!box.checked);
+    updatePromoSelectedCount();
+  };
+  window.sendPromoWhatsApp=function(){
+    const title=(document.getElementById('promoTitle')?.value||'').trim();
+    const body=(document.getElementById('promoMessage')?.value||'').trim();
+    if(!title && !body) return alert('Enter an offer title or promotional message first.');
+    const selected=Array.from(document.querySelectorAll('#promoCustomerTableBody .promo-customer-check:checked'))
+      .map(x=>x.dataset.phone).filter(Boolean);
+    if(!selected.length) return alert('Select at least one client.');
+    const message=`✨ *MAKEOVER BY NITU SHARMA* ✨\n\n*${title||'Special Offer'}*\n${body||''}\n\nWe look forward to welcoming you!`;
+    const phone=normalizeWhatsAppPhone(selected[0]);
+    if(!/^91\d{10}$/.test(phone)) return alert('Selected client has an invalid Indian mobile number.');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`,'_blank');
+    if(selected.length>1) alert(`WhatsApp opened for the first selected client. ${selected.length-1} more clients are selected; open each separately to avoid browser popup blocking.`);
+  };
+
+  /* ---------- Client Directory: Edit + personalized Greeting ---------- */
+  window.sendCustomerGreeting=function(phone){
+    const normalized=normalizeWhatsAppPhone(phone);
+    if(!/^91\d{10}$/.test(normalized)) return alert('Invalid Indian mobile number.');
+    const key=Object.keys(customers||{}).find(k=>customerKey(k)===customerKey(phone));
+    const c=key?customers[key]:{};
+    const name=c.name||'Customer';
+    const message=`✨ *MAKEOVER BY NITU SHARMA* ✨\n\nHello *${name}* 🌸\nWarm greetings from Makeover by Nitu Sharma!\n\nThank you for being a valued client. We look forward to welcoming you again soon. 💖\n\nHave a beautiful day!`;
+    const popup=window.open(`https://wa.me/${normalized}?text=${encodeURIComponent(message)}`,'_blank');
+    if(!popup) window.location.href=`https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
+  };
+  window.editCustomer=function(phone){
+    const key=Object.keys(customers||{}).find(k=>customerKey(k)===customerKey(phone));
+    if(!key) return alert('Client not found.');
+    const c=customers[key];
+    const name=prompt('Client Name:', c.name||''); if(name===null) return;
+    const email=prompt('Client Email:', c.email||''); if(email===null) return;
+    const address=prompt('Client Address:', c.address||''); if(address===null) return;
+    const newPhoneRaw=prompt('Client Mobile Number:', c.phone||key); if(newPhoneRaw===null) return;
+    const newPhone=String(newPhoneRaw).trim();
+    if(!newPhone) return alert('Mobile number cannot be empty.');
+    const newKey=customerKey(newPhone);
+    if(newKey.length<10) return alert('Enter a valid mobile number.');
+    if(newKey!==customerKey(key) && Object.keys(customers).some(k=>customerKey(k)===newKey)){
+      return alert('Another client already uses this mobile number.');
+    }
+    const updated={...c,name:name.trim(),email:email.trim(),address:address.trim(),phone:newPhone};
+    delete customers[key]; customers[newPhone]=updated;
+    sales.forEach(s=>{ if(customerKey(s.customerPhone)===customerKey(key)) s.customerPhone=newPhone; if(s.customerPhone===newPhone) s.customerName=updated.name; });
+    saveMNSState();
+    renderCustomers(); renderPromoCustomerTable(); renderLoyaltyDirectory(); updateLoyaltyMetrics();
+    alert('Client details updated successfully.');
+  };
+
+  /* Override directory renderer to add Edit + Greeting */
+  window.renderCustomers=function(){
+    const tbody=document.getElementById('customerTableBody');
+    const query=(document.getElementById('searchCust')?.value||'').toLowerCase();
+    if(!tbody) return;
+    const list=Object.values(customers||{}).filter(c=>
+      String(c.name||'').toLowerCase().includes(query)||String(c.phone||'').includes(query)
+    );
+    if(!list.length){
+      tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text-muted);">No client records found.</td></tr>'; return;
+    }
+    tbody.innerHTML=list.map(c=>{
+      const p=esc(c.phone||'');
+      return `<tr>
+        <td><strong>${p}</strong></td><td>${esc(c.name||'')}</td><td>${esc(c.email||'N/A')}</td>
+        <td>${Number(c.visits)||0}</td><td>₹${(Number(c.totalSpent)||0).toFixed(2)}</td>
+        <td style="color:${Number(c.pendingDues)>0?'#ef4444':'inherit'};">₹${(Number(c.pendingDues)||0).toFixed(2)}</td>
+        <td><span class="badge badge-gold">${Number(c.points)||0} pts</span></td>
+        <td>₹${(Number(c.wallet)||0).toFixed(2)}</td><td>${esc(c.lastVisit||'N/A')}</td>
+        <td><div style="display:flex;gap:4px;">
+          <button class="btn btn-primary btn-sm" title="Edit Client" onclick="editCustomer('${p}')"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn btn-whatsapp btn-sm" title="Send Greeting on WhatsApp" onclick="sendCustomerGreeting('${p}')"><i class="fa-brands fa-whatsapp"></i></button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  };
+
+  /* ---------- CRM date filtering: compare local calendar dates, not UTC timestamps ---------- */
+  window.crmSaleDate=function(sale){
+    const raw=sale&&(sale.date||sale.createdAt||sale.timestamp);
+    if(!raw) return null;
+    const str=String(raw);
+    const m=str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(m) return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),12,0,0,0);
+    const d=new Date(raw);
+    return Number.isNaN(d.getTime())?null:d;
+  };
+  window.saleInCRMRange=function(sale,range){
+    if(!range.start&&!range.end) return true;
+    const d=crmSaleDate(sale); if(!d) return false;
+    const day=new Date(d.getFullYear(),d.getMonth(),d.getDate(),12,0,0,0);
+    const start=range.start?new Date(range.start.getFullYear(),range.start.getMonth(),range.start.getDate(),0,0,0,0):null;
+    const end=range.end?new Date(range.end.getFullYear(),range.end.getMonth(),range.end.getDate(),23,59,59,999):null;
+    return (!start||day>=start)&&(!end||day<=end);
+  };
+  window.setDateFilter=function(filter,button){
+    currentFilter=['today','this_week','this_month','all'].includes(filter)?filter:'all';
+    customStart=null; customEnd=null;
+    const a=document.getElementById('filterStartDate'), b=document.getElementById('filterEndDate');
+    if(a)a.value=''; if(b)b.value='';
+    document.querySelectorAll('#crm-tab .filter-btn').forEach(x=>x.classList.remove('active'));
+    if(button)button.classList.add('active');
+    if(typeof renderCRM==='function')renderCRM();
+  };
+
+  /* ---------- Prevent duplicate invoices from double-click/tap ---------- */
+  let billSendBusy=false;
+  window.saveAndSendWhatsApp=async function(){
+    if(billSendBusy) return;
+    billSendBusy=true;
+    const btn=document.querySelector('#billing-tab button[onclick*="saveAndSendWhatsApp"]');
+    const old=btn?btn.innerHTML:'';
+    if(btn){btn.disabled=true;btn.style.opacity='.65';btn.innerHTML='<i class="fa-brands fa-whatsapp"></i> Preparing Bill...';}
+    try{
+      const sale=processCurrentSale();
+      if(!sale) return;
+      const ok=await shareInvoicePDFOnWhatsApp(sale);
+      if(ok) resetBillForm();
+    }catch(e){
+      console.error('WhatsApp bill error:',e);
+      alert('Could not send the bill on WhatsApp. Please try again.');
+    }finally{
+      billSendBusy=false;
+      if(btn){btn.disabled=false;btn.style.opacity='';btn.innerHTML=old;}
+    }
+  };
+
+  /* ---------- Mobile hamburger ---------- */
+  function installMobileMenu(){
+    if(document.getElementById('mnsMobileMenuToggle')) return;
+    const header=document.querySelector('.top-header');
+    const sidebar=document.querySelector('.sidebar');
+    if(!header||!sidebar)return;
+    const overlay=document.createElement('div'); overlay.className='mobile-menu-overlay'; overlay.id='mnsMobileOverlay';
+    document.body.appendChild(overlay);
+    const btn=document.createElement('button'); btn.id='mnsMobileMenuToggle'; btn.className='mobile-menu-toggle';
+    btn.type='button'; btn.setAttribute('aria-label','Open menu'); btn.innerHTML='<i class="fa-solid fa-bars"></i>';
+    header.insertBefore(btn,header.firstChild);
+    function close(){sidebar.classList.remove('mobile-open');overlay.classList.remove('show');btn.innerHTML='<i class="fa-solid fa-bars"></i>';}
+    btn.addEventListener('click',function(){
+      const open=!sidebar.classList.contains('mobile-open');
+      sidebar.classList.toggle('mobile-open',open); overlay.classList.toggle('show',open);
+      btn.innerHTML=open?'<i class="fa-solid fa-xmark"></i>':'<i class="fa-solid fa-bars"></i>';
+    });
+    overlay.addEventListener('click',close);
+    window.addEventListener('resize',function(){if(window.innerWidth>768)close();});
+    window.mnsCloseMobileMenu=close;
+  }
+
+  /* Extend tab switching without damaging the existing one */
+  const originalSwitchTab=window.switchTab;
+  window.switchTab=function(tabId,element){
+    originalSwitchTab(tabId,element);
+    if(window.mnsCloseMobileMenu)window.mnsCloseMobileMenu();
+    if(tabId==='promo-tab')renderPromoCustomerTable();
+    if(tabId==='loyalty-tab'){renderLoyaltyDirectory();updateLoyaltyMetrics();}
+    if(tabId==='customers-tab')renderCustomers();
+  };
+
+  document.addEventListener('DOMContentLoaded',function(){
+    installMobileMenu();
+    renderCustomers();
+    renderPromoCustomerTable();
+    renderLoyaltyDirectory();
+    updateLoyaltyMetrics();
+  });
+})();
+</script>
+
 </body>
 </html>
 
